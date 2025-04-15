@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FormularioController;
+use App\Http\Controllers\AuthController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -23,3 +24,13 @@ Route::post('/finalizar-formulario', [FormularioController::class, 'guardarTodo'
 Route::get('/final', function () {
     return view('final');
 });
+
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login'])->name('admin.auth');
+
+Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// Ejemplo de ruta protegida para el dashboard
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->name('dashboard')->middleware('check.usuario'); // usa el alias que definiste
