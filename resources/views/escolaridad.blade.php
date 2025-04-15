@@ -95,7 +95,9 @@
 <body>
     <div class="card">
         <h2>Escolaridad del Estudiante</h2>
-        <form action="#" method="POST">
+        <form action="{{ url('/guardar-escolaridad') }}" method="POST">
+            @csrf
+
             <label for="modalidad" class="required">Modalidad de estudios</label>
             <select name="modalidad" id="modalidad" required>
                 <option value="" disabled selected>Selecciona una modalidad</option>
@@ -116,8 +118,8 @@
                 <input type="text" name="carrera_otro" placeholder="Especificar otra carrera">
             </div>
 
-            <label for="semestre" class="required">Semestre que estás cursando</label>
-            <select name="semestre" id="semestre" required>
+            <label for="semestre_actual" class="required">Semestre que estás cursando</label>
+            <select name="semestre_actual" id="semestre_actual" required>
                 <option value="" disabled selected>Selecciona tu semestre</option>
                 @for ($i = 3; $i <= 6; $i++)
                     <option value="{{ $i }}">{{ $i }}° semestre</option>
@@ -132,12 +134,12 @@
                 @endforeach
             </select>
 
-            <label for="control" class="required">Número de control (14 dígitos)</label>
-            <input type="text" name="control" id="control" required pattern="[0-9]{14}" maxlength="14" title="Debe contener exactamente 14 dígitos numéricos" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            <label for="matricula" class="required">Número de control (14 dígitos)</label>
+            <input type="text" name="matricula" id="matricula" required pattern="[0-9]{14}" maxlength="14" title="Debe contener exactamente 14 dígitos numéricos" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
 
             <div class="buttons">
                 <a href="{{ url('/datos-alumno') }}" class="btn">Atrás</a>
-                <a href="{{ url('/programa') }}" class="btn">Siguiente</a>
+                <button type="submit" class="btn">Siguiente</button>
             </div>
         </form>
     </div>

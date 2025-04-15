@@ -118,7 +118,9 @@
 <body>
     <div class="card">
         <h2>Datos del Programa</h2>
-        <form action="#" method="POST">
+        <form action="{{ url('/finalizar-formulario') }}" method="POST">
+         @csrf
+
 
             <label for="dependencia" class="required">Nombre de la dependencia u organización</label>
             <select name="dependencia" id="dependencia" onchange="toggleOtraInstitucion()" required>
@@ -185,7 +187,7 @@
 
             <div class="buttons">
                 <a href="{{ url('/escolaridad') }}" class="btn">Atrás</a>
-                <a href="{{ url('/final') }}" class="btn">Finalizar</a>
+                <button type="submit" class="btn">Finalizar</button>
             </div>
         </form>
     </div>

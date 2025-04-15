@@ -98,9 +98,11 @@
 <body>
     <div class="card">
         <h2>Datos del Alumno</h2>
-        <form id="formAlumno" action="#" method="POST" novalidate>
+        <form id="formAlumno" action="{{ url('/guardar-datos-alumno') }}" method="POST" novalidate>
+            @csrf
+
             <label for="correo" class="required">Correo institucional</label>
-            <input type="email" name="correo" id="correo" required
+            <input type="email" name="email_institucional" id="correo" required
                    pattern="^[a-zA-Z0-9._%+-]+@cbta256\.edu\.mx$"
                    title="Debe ser un correo institucional que termine en @cbta256.edu.mx">
 
@@ -160,7 +162,7 @@
 
             <div class="buttons">
                 <a href="{{ url('/solicitud') }}" class="btn">Atrás</a>
-                <a href="{{ url('/escolaridad') }}" class="btn">Siguiente</a>
+                <button type="submit" class="btn">Siguiente</button>
             </div>
         </form>
     </div>
