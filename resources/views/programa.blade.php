@@ -51,17 +51,6 @@
             font-family: 'Montserrat', sans-serif;
         }
 
-        .radio-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 10px;
-        }
-
-        .radio-group label {
-            font-weight: normal;
-        }
-
         .btn {
             background-color: #8B0000;
             color: white;
@@ -107,8 +96,18 @@
     <script>
         function toggleOtraInstitucion() {
             const select = document.getElementById('dependencia');
-            const otraInstitucion = document.getElementById('otraInstitucionContainer');
-            otraInstitucion.style.display = (select.value === 'Otro') ? 'block' : 'none';
+            const otra = document.getElementById('otraInstitucionContainer');
+            otra.style.display = (select.value === 'Otro') ? 'block' : 'none';
+        }
+
+        function toggleOtroTitulo(select) {
+            const otro = document.getElementById('otroTituloInput');
+            otro.style.display = (select.value === 'Otro') ? 'block' : 'none';
+        }
+
+        function toggleOtroTipo(select) {
+            const otro = document.getElementById('otroTipoInput');
+            otro.style.display = (select.value === 'Otro') ? 'block' : 'none';
         }
 
         function capitalizarNombre(input) {
@@ -120,6 +119,7 @@
     <div class="card">
         <h2>Datos del Programa</h2>
         <form action="#" method="POST">
+
             <label for="dependencia" class="required">Nombre de la dependencia u organización</label>
             <select name="dependencia" id="dependencia" onchange="toggleOtraInstitucion()" required>
                 <option value="" disabled selected>Selecciona una opción</option>
@@ -138,15 +138,16 @@
             <label for="encargado" class="required">Nombre del encargado(a)</label>
             <input type="text" name="encargado" id="encargado" required oninput="capitalizarNombre(this)">
 
-            <label class="required">Título del encargado</label>
-            <div class="radio-group">
+            <label for="titulo_encargado" class="required">Título del encargado</label>
+            <select name="titulo_encargado" id="titulo_encargado" onchange="toggleOtroTitulo(this)" required>
+                <option value="" disabled selected>Selecciona un título</option>
                 @foreach(['Lic.', 'Arq.', 'Ing.', 'Profr.', 'Profa.', 'Dr.', 'Dra.', 'C.P.T.', 'Dir.', 'Pte.', 'Abg.', 'Mtro.', 'Mtra.', 'Delegado', 'Otro'] as $titulo)
-                    <label>
-                        <input type="radio" name="titulo_encargado" value="{{ $titulo }}" required> {{ $titulo }}
-                    </label>
+                    <option value="{{ $titulo }}">{{ $titulo }}</option>
                 @endforeach
+            </select>
+            <div id="otroTituloInput" style="display:none; margin-top:10px;">
+                <input type="text" name="otro_titulo" placeholder="Especificar si seleccionaste 'Otro'">
             </div>
-            <input type="text" name="otro_titulo" placeholder="Especificar si seleccionaste 'Otro'" style="width: 100%; margin-top: 10px;">
 
             <label for="puesto_encargado" class="required">Puesto del encargado</label>
             <input type="text" name="puesto_encargado" id="puesto_encargado" required>
@@ -157,12 +158,13 @@
                    title="Debe contener exactamente 10 dígitos numéricos"
                    oninput="this.value = this.value.replace(/[^0-9]/g, '')">
 
-            <label class="required">Método de realización del servicio social</label>
-            <div class="radio-group">
-                <label><input type="radio" name="metodo" value="Individual" required> Individual</label>
-                <label><input type="radio" name="metodo" value="Grupal"> Grupal</label>
-                <label><input type="radio" name="metodo" value="Brigada"> Brigada</label>
-            </div>
+            <label for="metodo" class="required">Método de realización del servicio social</label>
+            <select name="metodo" id="metodo" required>
+                <option value="" disabled selected>Selecciona un método</option>
+                <option value="Individual">Individual</option>
+                <option value="Grupal">Grupal</option>
+                <option value="Brigada">Brigada</option>
+            </select>
 
             <label for="inicio" class="required">Fecha de inicio del servicio social</label>
             <input type="date" name="inicio" id="inicio" required>
@@ -170,15 +172,16 @@
             <label for="fin" class="required">Fecha de término del servicio social</label>
             <input type="date" name="fin" id="fin" required>
 
-            <label class="required">Tipo de programa</label>
-            <div class="radio-group">
+            <label for="tipo_programa" class="required">Tipo de programa</label>
+            <select name="tipo_programa" id="tipo_programa" onchange="toggleOtroTipo(this)" required>
+                <option value="" disabled selected>Selecciona un tipo</option>
                 @foreach(['Educativo', 'Social', 'Comunitario', 'Alimentario', 'Ecológico', 'Salud', 'Otro'] as $tipo)
-                    <label>
-                        <input type="radio" name="tipo_programa" value="{{ $tipo }}" required> {{ $tipo }}
-                    </label>
+                    <option value="{{ $tipo }}">{{ $tipo }}</option>
                 @endforeach
+            </select>
+            <div id="otroTipoInput" style="display:none; margin-top:10px;">
+                <input type="text" name="tipo_otro" placeholder="Especificar si seleccionaste 'Otro'">
             </div>
-            <input type="text" name="tipo_otro" placeholder="Especificar si seleccionaste 'Otro'" style="width: 100%; margin-top: 10px;">
 
             <div class="buttons">
                 <a href="{{ url('/escolaridad') }}" class="btn">Atrás</a>

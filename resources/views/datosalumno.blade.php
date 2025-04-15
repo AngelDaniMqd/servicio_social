@@ -44,18 +44,13 @@
         input[type="text"],
         input[type="email"],
         input[type="tel"],
+        input[type="number"],
         select {
             width: 100%;
             padding: 10px;
             border-radius: 6px;
             border: 1px solid #ccc;
             font-family: 'Montserrat', sans-serif;
-        }
-
-        .radio-group {
-            display: flex;
-            gap: 15px;
-            margin-top: 5px;
         }
 
         .buttons {
@@ -125,19 +120,15 @@
                    title="Cada palabra debe iniciar con mayúscula. Solo letras." oninput="capitalizar(this)">
 
             <label for="edad" class="required">Edad</label>
-            <select name="edad" id="edad" required style="height: 42px;">
-                <option value="" disabled selected>Selecciona tu edad</option>
-                @foreach(range(14, 19) as $edad)
-                    <option value="{{ $edad }}">{{ $edad }}</option>
-                @endforeach
-                <option value="20+">20 o más</option>
-            </select>
+            <input type="number" name="edad" id="edad" required min="10" max="99"
+                   title="Edad válida entre 10 y 99 años">
 
-            <label class="required">Sexo</label>
-            <div class="radio-group">
-                <label><input type="radio" name="sexo" value="Femenino" required> Femenino</label>
-                <label><input type="radio" name="sexo" value="Masculino"> Masculino</label>
-            </div>
+            <label for="sexo" class="required">Sexo</label>
+            <select name="sexo" id="sexo" required>
+                <option value="" disabled selected>Selecciona tu sexo</option>
+                <option value="Femenino">Femenino</option>
+                <option value="Masculino">Masculino</option>
+            </select>
 
             <label for="telefono" class="required">Teléfono personal</label>
             <input type="tel" name="telefono" id="telefono" required maxlength="10" minlength="10"
@@ -184,7 +175,7 @@
         document.getElementById('formAlumno').addEventListener('submit', function (e) {
             if (!this.checkValidity()) {
                 e.preventDefault();
-                this.reportValidity(); // Muestra el error visual y evita envío
+                this.reportValidity();
             }
         });
     </script>

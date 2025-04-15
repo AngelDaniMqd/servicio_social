@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -49,24 +49,6 @@
             font-family: 'Montserrat', sans-serif;
         }
 
-        .radio-group {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .radio-option {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .radio-option input[type="text"] {
-            width: 150px;
-        }
-
         .btn {
             background-color: #8B0000;
             color: white;
@@ -107,11 +89,6 @@
             .btn {
                 width: 100%;
             }
-
-            .radio-group {
-                flex-direction: column;
-                align-items: flex-start;
-            }
         }
     </style>
 </head>
@@ -119,22 +96,24 @@
     <div class="card">
         <h2>Escolaridad del Estudiante</h2>
         <form action="#" method="POST">
+            <label for="modalidad" class="required">Modalidad de estudios</label>
+            <select name="modalidad" id="modalidad" required>
+                <option value="" disabled selected>Selecciona una modalidad</option>
+                <option value="Escolarizado">Escolarizado</option>
+                <option value="Auto-planeado">Auto-planeado</option>
+                <option value="Formación dual (no habilitado)">Formación dual (no habilitado)</option>
+            </select>
 
-            <label class="required">Modalidad de estudios</label>
-            <div class="radio-group">
-                <label class="radio-option"><input type="radio" name="modalidad" value="Escolarizado" required> Escolarizado</label>
-                <label class="radio-option"><input type="radio" name="modalidad" value="Auto-planeado"> Auto-planeado</label>
-                <label class="radio-option"><input type="radio" name="modalidad" value="Formación dual (no habilitado)"> Formación dual (no habilitado)</label>
-            </div>
+            <label for="carrera" class="required">Carrera</label>
+            <select name="carrera" id="carrera" required onchange="mostrarOtraCarrera(this)">
+                <option value="" disabled selected>Selecciona una carrera</option>
+                <option value="Técnico Agropecuario">Técnico Agropecuario</option>
+                <option value="Técnico en Ofimática">Técnico en Ofimática</option>
+                <option value="Otro">Otro</option>
+            </select>
 
-            <label class="required">Carrera</label>
-            <div class="radio-group">
-                <label class="radio-option"><input type="radio" name="carrera" value="Técnico Agropecuario" required> Técnico Agropecuario</label>
-                <label class="radio-option"><input type="radio" name="carrera" value="Técnico en Ofimática"> Técnico en Ofimática</label>
-                <div class="radio-option">
-                    <input type="radio" name="carrera" value="Otro"> Otro:
-                    <input type="text" name="carrera_otro" placeholder="Especificar">
-                </div>
+            <div id="otraCarreraInput" style="display:none; margin-top:10px;">
+                <input type="text" name="carrera_otro" placeholder="Especificar otra carrera">
             </div>
 
             <label for="semestre" class="required">Semestre que estás cursando</label>
@@ -145,12 +124,13 @@
                 @endfor
             </select>
 
-            <label class="required">Grupo</label>
-            <div class="radio-group">
+            <label for="grupo" class="required">Grupo</label>
+            <select name="grupo" id="grupo" required>
+                <option value="" disabled selected>Selecciona tu grupo</option>
                 @foreach(['A','B','C','D','E','F','G','H','I'] as $grupo)
-                    <label class="radio-option"><input type="radio" name="grupo" value="{{ $grupo }}" required> {{ $grupo }}</label>
+                    <option value="{{ $grupo }}">{{ $grupo }}</option>
                 @endforeach
-            </div>
+            </select>
 
             <label for="control" class="required">Número de control (14 dígitos)</label>
             <input type="text" name="control" id="control" required pattern="[0-9]{14}" maxlength="14" title="Debe contener exactamente 14 dígitos numéricos" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
@@ -161,5 +141,12 @@
             </div>
         </form>
     </div>
+
+    <script>
+        function mostrarOtraCarrera(select) {
+            const otra = document.getElementById('otraCarreraInput');
+            otra.style.display = (select.value === 'Otro') ? 'block' : 'none';
+        }
+    </script>
 </body>
 </html>
