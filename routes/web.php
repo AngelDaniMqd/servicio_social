@@ -41,3 +41,8 @@ Route::delete('/record/delete/{table}/{id}', [DatabaseOverviewController::class,
 Route::put('/record/update/{table}/{id}', [DatabaseOverviewController::class, 'update'])->name('record.update');
 Route::get('/record/create/{table}', [DatabaseOverviewController::class, 'create'])->name('record.create');
 Route::post('/record/store/{table}', [DatabaseOverviewController::class, 'store'])->name('record.store');
+Route::get('/autocomplete/{table}/{column}', [DatabaseOverviewController::class, 'autocomplete'])->name('autocomplete');
+
+Route::get('/municipios-por-estado/{estado}', function($estado) {
+    return DB::table('municipios')->where('estado_id', $estado)->select('id','nombre')->get();
+});
