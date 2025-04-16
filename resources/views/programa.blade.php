@@ -6,9 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             background-color: #f0f0f0;
@@ -31,6 +29,17 @@
         h2 {
             text-align: center;
             margin-bottom: 30px;
+        }
+
+        .alerta {
+            background-color: #ffe0e0;
+            border: 1px solid #cc0000;
+            color: #a00000;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
         }
 
         label {
@@ -97,30 +106,140 @@
         function toggleOtraInstitucion() {
             const select = document.getElementById('dependencia');
             const otra = document.getElementById('otraInstitucionContainer');
-            otra.style.display = (select.value === 'Otro') ? 'block' : 'none';
+            const input = document.getElementById('otra_institucion');
+            if (select.value === 'Otro') {
+                otra.style.display = 'block';
+                input.setAttribute('required', 'required');
+            } else {
+                otra.style.display = 'none';
+                input.removeAttribute('required');
+                input.value = '';
+            }
         }
 
         function toggleOtroTitulo(select) {
             const otro = document.getElementById('otroTituloInput');
-            otro.style.display = (select.value === 'Otro') ? 'block' : 'none';
+            const input = document.getElementById('otro_titulo');
+            if (select.value === 'Otro') {
+                otro.style.display = 'block';
+                input.setAttribute('required', 'required');
+            } else {
+                otro.style.display = 'none';
+                input.removeAttribute('required');
+                input.value = '';
+            }
         }
 
         function toggleOtroTipo(select) {
             const otro = document.getElementById('otroTipoInput');
-            otro.style.display = (select.value === 'Otro') ? 'block' : 'none';
+            const input = document.getElementById('tipo_otro');
+            if (select.value === 'Otro') {
+                otro.style.display = 'block';
+                input.setAttribute('required', 'required');
+            } else {
+                otro.style.display = 'none';
+                input.removeAttribute('required');
+                input.value = '';
+            }
         }
 
         function capitalizarNombre(input) {
             input.value = input.value.replace(/\b\w/g, l => l.toUpperCase());
         }
+
+        function validarFecha(input) {
+            const valor = input.value;
+            const year = parseInt(valor.split("-")[0]);
+            if (isNaN(year) || year.toString().length !== 4) {
+                input.setCustomValidity("El año debe tener exactamente 4 dígitos.");
+                return false;
+            } else if (year < 2025) {
+                input.setCustomValidity("Solo se permiten fechas desde el año 2025 en adelante.");
+                return false;
+            } else {
+                input.setCustomValidity("");
+                return true;
+            }
+        }
+
+        function compararFechas(inicio, fin) {
+            const fechaInicio = new Date(inicio.value);
+            const fechaFin = new Date(fin.value);
+            if (fechaFin < fechaInicio) {
+                fin.setCustomValidity("La fecha de término no puede ser anterior a la de inicio.");
+                return false;
+            } else {
+                fin.setCustomValidity("");
+                return true;
+            }
+        }
+
+        function validarProgramaForm() {
+            const dependencia = document.getElementById("dependencia").value;
+            const otraInstitucion = document.getElementById("otra_institucion").value.trim();
+
+            const tituloEncargado = document.getElementById("titulo_encargado").value;
+            const otroTitulo = document.getElementById("otro_titulo").value.trim();
+
+            const tipoPrograma = document.getElementById("tipo_programa").value;
+            const tipoOtro = document.getElementById("tipo_otro").value.trim();
+
+            if (dependencia === "Otro" && otraInstitucion === "") {
+                alert("Por favor especifica la otra institución.");
+                return false;
+            }
+
+            if (tituloEncargado === "Otro" && otroTitulo === "") {
+                alert("Por favor especifica el otro título del encargado.");
+                return false;
+            }
+
+            if (tipoPrograma === "Otro" && tipoOtro === "") {
+                alert("Por favor especifica el otro tipo de programa.");
+                return false;
+            }
+
+            return true;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const form = document.querySelector("form");
+            const inicio = document.getElementById("inicio");
+            const fin = document.getElementById("fin");
+
+            inicio.addEventListener("blur", () => validarFecha(inicio));
+            fin.addEventListener("blur", () => {
+                validarFecha(fin);
+                compararFechas(inicio, fin);
+            });
+
+            form.addEventListener("submit", function (e) {
+                const validInicio = validarFecha(inicio);
+                const validFin = validarFecha(fin);
+                const fechasOk = compararFechas(inicio, fin);
+                const validForm = validarProgramaForm();
+
+                if (!validInicio || !validFin || !fechasOk || !this.checkValidity() || !validForm) {
+                    e.preventDefault();
+                    this.reportValidity();
+                }
+            });
+        });
     </script>
 </head>
 <body>
     <div class="card">
         <h2>Datos del Programa</h2>
-        <form action="{{ url('/finalizar-formulario') }}" method="POST">
-         @csrf
 
+        @if(session('error'))
+            <div class="alerta">
+                {{ session('error') }}<br>
+                Por favor, vuelve a intentarlo.
+            </div>
+        @endif
+
+        <form action="{{ url('/finalizar-formulario') }}" method="POST">
+            @csrf
 
             <label for="dependencia" class="required">Nombre de la dependencia u organización</label>
             <select name="dependencia" id="dependencia" onchange="toggleOtraInstitucion()" required>
@@ -148,7 +267,7 @@
                 @endforeach
             </select>
             <div id="otroTituloInput" style="display:none; margin-top:10px;">
-                <input type="text" name="otro_titulo" placeholder="Especificar si seleccionaste 'Otro'">
+                <input type="text" name="otro_titulo" id="otro_titulo" placeholder="Especificar si seleccionaste 'Otro'">
             </div>
 
             <label for="puesto_encargado" class="required">Puesto del encargado</label>
@@ -182,7 +301,7 @@
                 @endforeach
             </select>
             <div id="otroTipoInput" style="display:none; margin-top:10px;">
-                <input type="text" name="tipo_otro" placeholder="Especificar si seleccionaste 'Otro'">
+                <input type="text" name="tipo_otro" id="tipo_otro" placeholder="Especificar si seleccionaste 'Otro'">
             </div>
 
             <div class="buttons">

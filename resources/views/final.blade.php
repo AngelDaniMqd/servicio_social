@@ -27,6 +27,16 @@
             text-align: center;
         }
 
+        .alerta {
+            background-color: #ffe0e0;
+            border: 1px solid #cc0000;
+            color: #a00000;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
         h1 {
             color: #006400;
             font-size: 26px;
@@ -58,8 +68,15 @@
 </head>
 <body>
     <div class="card">
+        @if(session('error'))
+            <div class="alerta">
+                {{ session('error') }}<br>
+                Si el problema persiste, contacta al administrador.
+            </div>
+        @endif
+
         <h1>¡Formulario enviado correctamente!</h1>
-        <p>Gracias por completar tu registro de Servicio Social.</p>
+        <p>Gracias <strong>{{ $nombre }}</strong> por completar tu registro de Servicio Social.</p>
         <a href="{{ url('/solicitud') }}" class="btn">Volver al inicio</a>
     </div>
 </body>

@@ -34,6 +34,17 @@
             font-size: 22px;
         }
 
+        .alerta {
+            background-color: #ffe0e0;
+            border: 1px solid #cc0000;
+            color: #a00000;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+
         form label {
             font-weight: 600;
             display: block;
@@ -95,7 +106,15 @@
 <body>
     <div class="card">
         <h2>Escolaridad del Estudiante</h2>
-        <form action="{{ url('/guardar-escolaridad') }}" method="POST">
+
+        @if(session('error'))
+            <div class="alerta">
+                {{ session('error') }}<br>
+                Por favor, vuelve a intentarlo.
+            </div>
+        @endif
+
+        <form action="{{ url('/guardar-escolaridad') }}" method="POST" onsubmit="return validarFormulario()">
             @csrf
 
             <label for="modalidad" class="required">Modalidad de estudios</label>
@@ -115,7 +134,7 @@
             </select>
 
             <div id="otraCarreraInput" style="display:none; margin-top:10px;">
-                <input type="text" name="carrera_otro" placeholder="Especificar otra carrera">
+                <input type="text" name="carrera_otro" id="carrera_otro" placeholder="Especificar otra carrera">
             </div>
 
             <label for="semestre_actual" class="required">Semestre que estás cursando</label>
@@ -147,7 +166,27 @@
     <script>
         function mostrarOtraCarrera(select) {
             const otra = document.getElementById('otraCarreraInput');
-            otra.style.display = (select.value === 'Otro') ? 'block' : 'none';
+            const inputOtro = document.getElementById('carrera_otro');
+
+            if (select.value === 'Otro') {
+                otra.style.display = 'block';
+                inputOtro.setAttribute('required', 'required');
+            } else {
+                otra.style.display = 'none';
+                inputOtro.removeAttribute('required');
+                inputOtro.value = '';
+            }
+        }
+
+        function validarFormulario() {
+            const carrera = document.getElementById('carrera').value;
+            const otraCarrera = document.getElementById('carrera_otro').value.trim();
+
+            if (carrera === 'Otro' && otraCarrera === '') {
+                alert("Por favor especifica la otra carrera.");
+                return false;
+            }
+            return true;
         }
     </script>
 </body>

@@ -42,7 +42,6 @@
         }
 
         input[type="text"],
-        input[type="email"],
         input[type="tel"],
         input[type="number"],
         select {
@@ -79,6 +78,17 @@
             color: red;
         }
 
+        .alerta {
+            background-color: #ffe0e0;
+            border: 1px solid #cc0000;
+            color: #a00000;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+
         @media (max-width: 768px) {
             .card {
                 padding: 25px 20px;
@@ -98,13 +108,22 @@
 <body>
     <div class="card">
         <h2>Datos del Alumno</h2>
+
+        @if(session('error'))
+            <div class="alerta">
+                {{ session('error') }}<br>
+                Por favor, vuelve a intentarlo.
+            </div>
+        @endif
+
         <form id="formAlumno" action="{{ url('/guardar-datos-alumno') }}" method="POST" novalidate>
             @csrf
 
             <label for="correo" class="required">Correo institucional</label>
-            <input type="email" name="email_institucional" id="correo" required
+            <input type="text" name="email_institucional" id="correo" required
                    pattern="^[a-zA-Z0-9._%+-]+@cbta256\.edu\.mx$"
-                   title="Debe ser un correo institucional que termine en @cbta256.edu.mx">
+                   title="Debe ser un correo institucional que termine en @cbta256.edu.mx"
+                   oninput="validarCorreo(this)">
 
             <label for="apellido_paterno" class="required">Apellido paterno</label>
             <input type="text" name="apellido_paterno" id="apellido_paterno" required maxlength="30"
@@ -138,7 +157,7 @@
                    oninput="this.value = this.value.replace(/[^0-9]/g, '')">
 
             <label for="calle" class="required">Calle y número</label>
-            <input type="text" name="calle" id="calle" required maxlength="100">
+            <input type="text" name="calle" id="calle" required maxlength="100" oninput="capitalizar(this)">
 
             <label for="cp" class="required">Código postal</label>
             <input type="text" name="cp" id="cp" required maxlength="5" minlength="5"
@@ -146,19 +165,28 @@
                    oninput="this.value = this.value.replace(/[^0-9]/g, '')">
 
             <label for="colonia" class="required">Colonia</label>
-            <input type="text" name="colonia" id="colonia" required>
+            <input type="text" name="colonia" id="colonia" required oninput="capitalizar(this)">
 
             <label for="localidad" class="required">Localidad</label>
-            <input type="text" name="localidad" id="localidad" required>
+            <input type="text" name="localidad" id="localidad" required oninput="capitalizar(this)">
 
             <label for="municipio" class="required">Municipio</label>
-            <input type="text" name="municipio" id="municipio" required>
+            <select name="municipio" id="municipio" required>
+                <option value="" disabled selected>Selecciona un municipio</option>
+                <option value="Pedro Escobedo">Pedro Escobedo</option>
+            </select>
 
             <label for="ciudad" class="required">Ciudad</label>
-            <input type="text" name="ciudad" id="ciudad" required>
+            <select name="ciudad" id="ciudad" required>
+                <option value="" disabled selected>Selecciona una ciudad</option>
+                <option value="Pedro Escobedo">Pedro Escobedo</option>
+            </select>
 
             <label for="estado" class="required">Estado</label>
-            <input type="text" name="estado" id="estado" required>
+            <select name="estado" id="estado" required>
+                <option value="" disabled selected>Selecciona un estado</option>
+                <option value="Querétaro">Querétaro</option>
+            </select>
 
             <div class="buttons">
                 <a href="{{ url('/solicitud') }}" class="btn">Atrás</a>
@@ -172,6 +200,15 @@
             input.value = input.value
                 .toLowerCase()
                 .replace(/(^|\s)\S/g, letra => letra.toUpperCase());
+        }
+
+        function validarCorreo(input) {
+            const regex = /^[a-zA-Z0-9._%+-]+@cbta256\.edu\.mx$/;
+            if (!regex.test(input.value)) {
+                input.setCustomValidity("El correo debe terminar en @cbta256.edu.mx");
+            } else {
+                input.setCustomValidity("");
+            }
         }
 
         document.getElementById('formAlumno').addEventListener('submit', function (e) {

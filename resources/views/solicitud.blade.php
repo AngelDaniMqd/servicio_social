@@ -75,6 +75,17 @@
             background-color: #a00000;
         }
 
+        .alerta {
+            background-color: #ffe0e0;
+            border: 1px solid #cc0000;
+            color: #a00000;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+
         @media (max-width: 768px) {
             .card {
                 padding: 25px 20px;
@@ -96,6 +107,14 @@
     <div class="card">
         <img src="{{ asset('img/servicio-social-banner.jpg') }}" alt="Logo CBTa">
         <h1>SOLICITUD DE SERVICIO SOCIAL (SSS)</h1>
+
+        {{-- ALERTA DE ERROR SI VIENE DESDE EL CONTROLADOR --}}
+        @if(session('error'))
+            <div class="alerta">
+                {{ session('error') }}<br>
+                Por favor, vuelva a intentarlo o contacte al personal de apoyo.
+            </div>
+        @endif
 
         <p><span class="resaltado">DIRECCIÓN GENERAL DE EDUCACIÓN TECNOLÓGICA AGROPECUARIA Y CIENCIAS DEL MAR</span><br>
         <span class="resaltado">CENTRO DE BACHILLERATO TECNOLÓGICO AGROPECUARIO N°256</span><br>
