@@ -9,9 +9,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckUsuario
 {
-    /**
-     * Maneja la petición entrante.
-     */
     public function handle(Request $request, Closure $next): Response
     {
         if (!session()->has('usuario_id')) {
