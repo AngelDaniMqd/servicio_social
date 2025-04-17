@@ -141,6 +141,29 @@ class FormularioController extends Controller
                 DB::table('escolaridad_alumno')->insert($escolaridadInsert);
             }
 
+            // Recopilar datos del formulario de programa
+            $datosPrograma = $request->only([
+                'instituciones_id',
+                'otra_institucion',
+                'nombre_programa',
+                'encargado_nombre',
+                'titulos_id',
+                'puesto_encargado',
+                'metodo_servicio_id',
+                'telefono_institucion',
+                'fecha_inicio',
+                'fecha_final',
+                'tipos_programa_id',
+                'otro_programa'
+            ]);
+
+            // Agregar el id del alumno y el status por defecto
+            $datosPrograma['alumno_id'] = $alumno_id;
+            $datosPrograma['status_id'] = 1;
+
+            // Insertar en la tabla programa_servicio_social
+            DB::table('programa_servicio_social')->insert($datosPrograma);
+
             // Finalmente, olvidar los datos de sesión
             session()->forget('datos_escolaridad');
 
