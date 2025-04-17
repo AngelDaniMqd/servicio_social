@@ -26,58 +26,13 @@
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
             text-align: center;
         }
-
-        .alerta {
-            background-color: #ffe0e0;
-            border: 1px solid #cc0000;
-            color: #a00000;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-weight: bold;
-        }
-
-        h1 {
-            color: #006400;
-            font-size: 26px;
-            margin-bottom: 20px;
-        }
-
-        p {
-            font-size: 16px;
-            color: #333;
-        }
-
-        .btn {
-            background-color: #8B0000;
-            color: white;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 25px;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .btn:hover {
-            background-color: #a00000;
-        }
     </style>
 </head>
 <body>
     <div class="card">
-        @if(session('error'))
-            <div class="alerta">
-                {{ session('error') }}<br>
-                Si el problema persiste, contacta al administrador.
-            </div>
-        @endif
-
-        <h1>¡Formulario enviado correctamente!</h1>
-        <p>Gracias <strong>{{ $nombre }}</strong> por completar tu registro de Servicio Social.</p>
-        <a href="{{ url('/solicitud') }}" class="btn">Volver al inicio</a>
+        <h1>Registro Exitoso</h1>
+        <p>El alumno se ha registrado correctamente.</p>
+        <a href="{{ url('/') }}">Regresar</a>
     </div>
 </body>
 </html>

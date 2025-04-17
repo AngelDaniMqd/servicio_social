@@ -48,21 +48,7 @@
             @endif
         @else
             <!-- Mostrar listado de tablas -->
-            <div class="mb-6">
-                <h1 class="text-2xl font-bold mb-4">Vista General de Tablas</h1>
-                <div>
-                    <h2 class="text-xl font-semibold mb-2">Tablas de la Base de Datos</h2>
-                    <ul class="flex flex-wrap gap-4">
-                        @foreach ($tables as $table)
-                            <li>
-                                <a href="{{ route('dashboard', ['table' => $table]) }}"
-                                   class="block py-1 px-2 hover:bg-blue-100 rounded">{{ $table }}</a>
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            </div>
-            <p class="text-lg">Selecciona una tabla desde la lista de arriba para ver sus registros.</p>
+           
         @endif
     </div>
 @endsection

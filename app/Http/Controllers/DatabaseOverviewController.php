@@ -29,7 +29,58 @@ class DatabaseOverviewController extends Controller
                 'display_column' => 'nombre'
             ]
         ],
-        // agrega más mapeos según tus tablas
+        // Nuevo mapeo para la tabla alumno:
+        'alumno' => [
+            'sexo_id'                => [
+                'table' => 'sexo',
+                'display_column' => 'tipo'
+            ],
+            'status_id'              => [
+                'table' => 'status',
+                'display_column' => 'tipo'
+            ],
+            'edad_id'                => [
+                'table' => 'edad',
+                'display_column' => 'edades' // Ajustar según el nombre de la columna real
+            ],
+            'rol_id'                 => [
+                'table' => 'rol',
+                'display_column' => 'tipo'
+            ],
+            'instituciones_id'       => [
+                'table' => 'instituciones',
+                'display_column' => 'nombre'
+            ],
+            'titulos_id'             => [
+                'table' => 'titulos',
+                'display_column' => 'titulo'
+            ],
+            'metodo_servicio_id'     => [
+                'table' => 'metodo_servicio',
+                'display_column' => 'metodo'
+            ],
+            'programa_status_id'     => [
+                'table' => 'status',
+                'display_column' => 'tipo'
+            ],
+            'escolaridad_modalidad_id'=> [
+                'table' => 'modalidad',
+                'display_column' => 'nombre'
+            ],
+            'escolaridad_carreras_id' => [
+                'table' => 'carreras',
+                'display_column' => 'nombre'
+            ],
+            'escolaridad_semestres_id'=> [
+                'table' => 'semestres',
+                'display_column' => 'nombre'
+            ],
+            'escolaridad_grupos_id'   => [
+                'table' => 'grupos',
+                'display_column' => 'letra'
+            ],
+        ],
+        // agrega otros mapeos según sea necesario
     ];
 
     public function index(Request $request)
