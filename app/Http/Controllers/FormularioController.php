@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use PhpOffice\PhpWord\TemplateProcessor;
 
 class FormularioController extends Controller
 {
@@ -70,7 +71,6 @@ class FormularioController extends Controller
             // Incluye 'localidad' y 'municipio' en los datos del alumno
             $datosAlumno = session('datos_alumno', $request->only([
                 'correo_institucional',
-              
                 'apellido_paterno',
                 'apellido_materno',
                 'nombre',
@@ -93,13 +93,15 @@ class FormularioController extends Controller
                 'apellido_m'            => $datosAlumno['apellido_materno'],
                 'nombre'                => $datosAlumno['nombre'],
                 'telefono'              => (int)$datosAlumno['telefono'],
-                // Se elimina 'codigo_postal'
                 'fecha_registro'        => Carbon::now()->format('Y-m-d H:i:s'),
                 'sexo_id'               => $datosAlumno['sexo'],
                 'status_id'             => 1,
                 'edad_id'               => (int)$datosAlumno['edad'],
                 'rol_id'                => 2,
             ];
+
+            // Insertar alumno primero para obtener su ID
+            $alumno_id = DB::table('alumno')->insertGetId($alumnoInsert);
 
             // ---------- PROCESAR UBICACIÓN ----------
             $municipio = DB::table('municipios')
@@ -108,15 +110,14 @@ class FormularioController extends Controller
             $idMunicipio = $municipio ? $municipio->id : 1;
 
             $ubicacionInsert = [
+                'alumno_id'      => $alumno_id,  // Cambio aquí - ahora ubicaciones tiene alumno_id
                 'localidad'      => $datosAlumno['localidad'],
-                'cp'             => (int)$datosAlumno['cp'],  // aquí se guarda el código postal
+                'cp'             => (int)$datosAlumno['cp'],
                 'municipios_id'  => $idMunicipio,
             ];
-            $ubicaciones_id = DB::table('ubicaciones')->insertGetId($ubicacionInsert);
-            $alumnoInsert['ubicaciones_id'] = $ubicaciones_id;
 
-            // Insertar en la tabla alumno y continuar con el proceso...
-            $alumno_id = DB::table('alumno')->insertGetId($alumnoInsert);
+            // Insertar ubicación
+            DB::table('ubicaciones')->insert($ubicacionInsert);
 
             // Insertar la escolaridad del alumno
             $datosEscolaridad = session('datos_escolaridad', $request->only([
@@ -166,9 +167,39 @@ class FormularioController extends Controller
 
             // Finalmente, olvidar los datos de sesión
             session()->forget('datos_escolaridad');
-
             session()->forget('datos_alumno');
+            
             return view('final', ['nombre' => $datosAlumno['nombre']]);
         });
+    }
+
+    public function downloadEditedWord($id)
+    {
+        // Obtener el alumno por id
+        $alumno = DB::table('alumno')->where('id', $id)->first();
+        if (!$alumno) {
+            return redirect()->back()->with('error', 'Alumno no encontrado.');
+        }
+
+        // Ruta de la plantilla, puedes cambiarla o bien extraerla de la tabla "formatos"
+        $templatePath = storage_path('app/templates/template.docx');
+
+        // Crear el TemplateProcessor
+        $templateProcessor = new TemplateProcessor($templatePath);
+
+        // Reemplazar los placeholders por la información del alumno
+        // Asegúrate que en la plantilla de Word los marcadores estén escritos igual, por ejemplo: {{nombre}}, {{apellido_m}}, etc.
+        $templateProcessor->setValue('nombre', $alumno->nombre);
+        $templateProcessor->setValue('apellido_p', $alumno->apellido_p);
+        $templateProcessor->setValue('apellido_m', $alumno->apellido_m);
+        $templateProcessor->setValue('correo_institucional', $alumno->correo_institucional);
+        // Agrega más reemplazos según la información que necesites
+
+        // Guardar el documento generado en un archivo temporal
+        $tempFile = tempnam(sys_get_temp_dir(), 'edited_') . '.docx';
+        $templateProcessor->saveAs($tempFile);
+
+        // Enviar el archivo para descargar
+        return response()->download($tempFile, 'archivo_' . $alumno->id . '.docx')->deleteFileAfterSend(true);
     }
 }
