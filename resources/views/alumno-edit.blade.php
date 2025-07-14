@@ -1,4 +1,3 @@
-
 @extends('layouts.blaze')
 
 @section('title', 'Editar Alumno')
@@ -564,60 +563,131 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
-    // Sincronizar códigos postales
-    $('#ubicacion_cp').on('input', function() {
-        var value = this.value;
-        $('#ubicacion_cp_duplicate').val(value);
-    });
+    // Variable para controlar si ya se mostró la alerta
+    let emailAlertShown = false;
+    
+    // Sincronizar códigos postales (solo para alumnos)
+    @if($selectedTable === 'alumno')
+        $('#ubicacion_cp').on('input', function() {
+            var value = this.value;
+            $('#ubicacion_cp_duplicate').val(value);
+        });
 
-    $('#ubicacion_cp_duplicate').on('input', function() {
-        var value = this.value;
-        $('#ubicacion_cp').val(value);
-    });
+        $('#ubicacion_cp_duplicate').on('input', function() {
+            var value = this.value;
+            $('#ubicacion_cp').val(value);
+        });
 
-    // Carga dinámica de municipios
-    $('#ubicacion_estado_id').change(function(){
-        var estadoId = $(this).val();
-        if(estadoId){
-            $.ajax({
-                url: '/municipios-por-estado/' + estadoId,
-                dataType: 'json',
-                success: function(data){
-                    var opciones = '<option value="">Seleccione un municipio</option>';
-                    $.each(data, function(i, municipio){
-                        opciones += '<option value="'+ municipio.id +'">'+ municipio.nombre +'</option>';
-                    });
-                    $('#ubicacion_municipios_id').html(opciones);
+        // Carga dinámica de municipios
+        $('#ubicacion_estado_id').change(function(){
+            var estadoId = $(this).val();
+            if(estadoId){
+                $.ajax({
+                    url: '/municipios-por-estado/' + estadoId,
+                    dataType: 'json',
+                    success: function(data){
+                        var opciones = '<option value="">Seleccione un municipio</option>';
+                        $.each(data, function(i, municipio){
+                            opciones += '<option value="'+ municipio.id +'">'+ municipio.nombre +'</option>';
+                        });
+                        $('#ubicacion_municipios_id').html(opciones);
+                    },
+                    error: function() {
+                        $('#ubicacion_municipios_id').html('<option value="">Error al cargar municipios</option>');
+                    }
+                });
+            } else {
+                $('#ubicacion_municipios_id').html('<option value="">Primero seleccione un estado</option>');
+            }
+        });
+
+        // Validaciones específicas para alumnos
+        $('#telefono, #programa_telefono_institucion').on('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
+        });
+
+        $('#ubicacion_cp, #ubicacion_cp_duplicate').on('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 5);
+        });
+
+        $('#escolaridad_numero_control').on('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 14);
+        });
+
+        // ELIMINAMOS LA VALIDACIÓN DE CORREO CON ALERT
+        // $('#correo_institucional').on('blur', function() {
+        //     var email = $(this).val();
+        //     if (email && !email.endsWith('@cbta256.edu.mx')) {
+        //         alert('El correo debe terminar en @cbta256.edu.mx');
+        //         $(this).focus();
+        //     }
+        // });
+
+        // Capitalizar nombres automáticamente
+        $('#nombre, #apellido_p, #apellido_m, #ubicacion_localidad, #programa_encargado_nombre').on('input', function() {
+            var start = this.selectionStart;
+            var end = this.selectionEnd;
+            
+            this.value = this.value.toLowerCase()
+                .replace(/(?:^|\s)\S/g, function(a) { 
+                    return a.toUpperCase(); 
+                });
+                
+            this.setSelectionRange(start, end);
+        });
+    @endif
+
+    // Validación del formulario antes de enviar
+    $('#editForm').submit(function(e) {
+        @if($selectedTable === 'alumno')
+            // Verificar si hay errores de validación antes de enviar
+            var email = $('#correo_institucional').val();
+            if (email && !email.endsWith('@cbta256.edu.mx')) {
+                e.preventDefault();
+                
+                // Mostrar error visual sin alert
+                $('#correo_institucional').addClass('border-red-500');
+                
+                // Agregar mensaje de error si no existe
+                if ($('#email-error').length === 0) {
+                    $('#correo_institucional').after('<div id="email-error" class="text-red-500 text-sm mt-1">El correo debe terminar en @cbta256.edu.mx</div>');
                 }
-            });
-        } else {
-            $('#ubicacion_municipios_id').html('<option value="">Primero seleccione un estado</option>');
-        }
+                
+                $('#correo_institucional').focus();
+                return false;
+            } else {
+                // Remover errores si todo está bien
+                $('#correo_institucional').removeClass('border-red-500');
+                $('#email-error').remove();
+            }
+        @endif
+        
+        var submitBtn = $('#submitBtn');
+        var submitText = $('#submitText');
+        var originalText = submitText.text();
+
+        // Cambiar estado del botón
+        submitBtn.prop('disabled', true);
+        submitText.text('Actualizando...');
+        
+        // Agregar spinner
+        submitBtn.find('svg').addClass('animate-spin');
+        
+        // Resetear después de 30 segundos si no se redirige
+        setTimeout(function() {
+            submitBtn.prop('disabled', false);
+            submitText.text(originalText);
+            submitBtn.find('svg').removeClass('animate-spin');
+        }, 30000);
     });
 
-    // Validaciones en tiempo real
-    $('#telefono, #programa_telefono_institucion').on('input', function() {
+    // Validación en tiempo real para campos específicos (sin alertas)
+    $('#telefono').on('input', function() {
         this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
     });
 
-    $('#ubicacion_cp, #ubicacion_cp_duplicate').on('input', function() {
-        this.value = this.value.replace(/[^0-9]/g, '').slice(0, 5);
-    });
-
-    $('#escolaridad_numero_control').on('input', function() {
-        this.value = this.value.replace(/[^0-9]/g, '').slice(0, 14);
-    });
-
-    $('#correo_institucional').on('blur', function() {
-        var email = $(this).val();
-        if (email && !email.endsWith('@cbta256.edu.mx')) {
-            alert('El correo debe terminar en @cbta256.edu.mx');
-            $(this).focus();
-        }
-    });
-
-    // Capitalizar nombres automáticamente
-    $('#nombre, #apellido_p, #apellido_m, #ubicacion_localidad, #programa_encargado_nombre').on('input', function() {
+    // Capitalizar nombres automáticamente (para formularios genéricos)
+    $('#nombre, #apellido_p, #apellido_m').on('input', function() {
         var start = this.selectionStart;
         var end = this.selectionEnd;
         
@@ -627,23 +697,6 @@ $(document).ready(function() {
             });
             
         this.setSelectionRange(start, end);
-    });
-
-    // Validación del formulario
-    $('#editAlumnoForm').submit(function(e) {
-        var submitBtn = $('#submitBtn');
-        var submitText = $('#submitText');
-        var originalText = submitText.text();
-
-        // Cambiar estado del botón
-        submitBtn.prop('disabled', true);
-        submitText.text('Guardando...');
-        
-        // Resetear después de 30 segundos si no se redirige
-        setTimeout(function() {
-            submitBtn.prop('disabled', false);
-            submitText.text(originalText);
-        }, 30000);
     });
 });
 </script>

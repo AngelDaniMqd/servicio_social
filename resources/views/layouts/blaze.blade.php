@@ -47,9 +47,9 @@
     @yield('styles')
 </head>
 <body class="bg-gray-50 text-gray-900">
-    <div class="flex h-screen">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r border-gray-200 shadow-sm flex flex-col">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar FIJO -->
+        <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 shadow-sm flex flex-col">
             <!-- Header del Sidebar -->
             <div class="p-6 border-b border-gray-200">
                 <div class="flex items-center space-x-3">
@@ -68,19 +68,21 @@
             <!-- Navigation -->
             <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
                 <!-- Dashboard -->
-                <a href="{{ route('dashboard') }}" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors">
+                <!--
+                <a href="{{ route('dashboard') }}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {{ request()->routeIs('dashboard') ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z"/>
                     </svg>
                     <span>Dashboard</span>
                 </a>
+                -->
 
                 <!-- Alumnos Recientes (Destacado) -->
-                <a href="{{ route('alumnos.descargar') }}" class="flex items-center space-x-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
-                    </svg>
+                <a href="{{ route('alumnos.recientes') }}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {{ request()->routeIs('alumnos.recientes') ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100' }}">
+                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+</svg>
                     <span>Alumnos Recientes</span>
                     <div class="ml-auto w-2 h-2 bg-blue-600 rounded-full"></div>
                 </a>
@@ -197,9 +199,9 @@
                     <div class="space-y-1">
                         <button onclick="toggleSubmenu('usuariosMenu')" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
                             <div class="flex items-center space-x-3">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
-                                </svg>
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+</svg>
                                 <span>Usuarios</span>
                             </div>
                             <svg class="w-4 h-4 transform transition-transform" id="usuariosMenuIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -228,10 +230,10 @@
             </div>
         </aside>
 
-        <!-- Contenido Principal -->
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <!-- Header -->
-            <header class="bg-white border-b border-gray-200 px-6 py-4">
+        <!-- Contenido Principal con margen para sidebar -->
+        <main class="flex-1 flex flex-col overflow-hidden ml-64">
+            <!-- Header FIJO -->
+            <header class="fixed top-0 right-0 left-64 z-40 bg-white border-b border-gray-200 px-6 py-4">
                 <div class="flex items-center justify-between">
                     <div>
                         <h1 class="text-2xl font-semibold text-gray-900">@yield('page-title', 'Dashboard')</h1>
@@ -282,9 +284,11 @@
                 </div>
             </header>
 
-            <!-- Contenido de la página -->
-            <div class="flex-1 overflow-y-auto p-6">
-                @yield('content')
+            <!-- Contenido de la página con espaciado para header -->
+            <div class="flex-1 overflow-y-auto pt-20 pb-6">
+                <div class="px-6">
+                    @yield('content')
+                </div>
             </div>
         </main>
     </div>

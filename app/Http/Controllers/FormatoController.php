@@ -1,7 +1,10 @@
 <?php
 namespace App\Http\Controllers;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Redirect;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 class FormatoController extends Controller
@@ -374,5 +377,103 @@ class FormatoController extends Controller
             'tipo' => 'reporte_final_basico',
             'data' => $alumno
         ]);
+    }
+
+    public function finalizarFormulario(Request $request)
+    {
+        try {
+            // Validar datos del request
+            $request->validate([
+                'instituciones_id' => 'required',
+                'telefono_institucion' => 'required|string|size:10',
+                'nombre_programa' => 'required|string|max:100',
+                'tipos_programa_id' => 'required',
+                'metodo_servicio_id' => 'required',
+                'fecha_inicio' => 'required|date',
+                'fecha_final' => 'required|date|after:fecha_inicio',
+                'titulos_id' => 'required',
+                'encargado_nombre' => 'required|string|max:100',
+                'puesto_encargado' => 'required|string|max:100',
+            ]);
+
+            // Obtener datos de la sesión
+            $alumnoId = Session::get('alumno_id');
+            
+            if (!$alumnoId) {
+                return redirect('/datosalumno')->with('error', 'Sesión expirada. Inicia el registro nuevamente.');
+            }
+
+            // Manejar institución "otra"
+            $institucionId = $request->instituciones_id;
+            if ($request->instituciones_id === 'otra' && $request->otra_institucion) {
+                // Insertar nueva institución
+                $institucionId = DB::table('instituciones')->insertGetId([
+                    'nombre' => $request->otra_institucion,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+
+            // Manejar tipo de programa "otro"
+            $tipoProgramaId = $request->tipos_programa_id;
+            if ($request->tipos_programa_id === '0' && $request->otro_programa) {
+                // Insertar nuevo tipo de programa
+                $tipoProgramaId = DB::table('tipos_programa')->insertGetId([
+                    'tipo' => $request->otro_programa,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+
+            // Insertar programa de servicio social
+            $programaId = DB::table('programa_servicio_social')->insertGetId([
+                'alumno_id' => $alumnoId,
+                'instituciones_id' => $institucionId,
+                'titulos_id' => $request->titulos_id,
+                'metodo_servicio_id' => $request->metodo_servicio_id,
+                'tipos_programa_id' => $tipoProgramaId,
+                'nombre_programa' => $request->nombre_programa,
+                'encargado_nombre' => $request->encargado_nombre,
+                'puesto_encargado' => $request->puesto_encargado,
+                'telefono_institucion' => $request->telefono_institucion,
+                'fecha_inicio' => $request->fecha_inicio,
+                'fecha_final' => $request->fecha_final,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            // Obtener información para mostrar en la página de éxito
+            $alumno = DB::table('alumno')->where('id', $alumnoId)->first();
+            $escolaridad = DB::table('escolaridad_alumno')
+                ->leftJoin('carreras', 'escolaridad_alumno.carreras_id', '=', 'carreras.id')
+                ->where('escolaridad_alumno.alumno_id', $alumnoId)
+                ->select('escolaridad_alumno.numero_control', 'carreras.nombre as carrera_nombre')
+                ->first();
+            
+            $institucion = DB::table('instituciones')->where('id', $institucionId)->first();
+
+            // Guardar información en la sesión para la página de éxito
+            Session::put([
+                'registro_exitoso' => true,
+                'alumno_nombre' => $alumno->nombre . ' ' . $alumno->apellido_p . ' ' . $alumno->apellido_m,
+                'numero_control' => $escolaridad->numero_control ?? 'No disponible',
+                'carrera_nombre' => $escolaridad->carrera_nombre ?? 'No disponible',
+                'programa_nombre' => $request->nombre_programa,
+                'institucion_nombre' => $institucion->nombre ?? 'No disponible'
+            ]);
+
+            // CAMBIAR esta línea:
+            return redirect('/registro-exitoso'); 
+
+            // POR una de estas opciones:
+            return redirect('/final'); // Opción simple
+            // O
+            return redirect()->route('registro.exitoso'); // Usando el nombre de la ruta
+
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Error al guardar la información: ' . $e->getMessage());
+        }
     }
 }

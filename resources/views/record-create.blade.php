@@ -169,6 +169,7 @@
                                            placeholder="correo@cbta256.edu.mx">
                                 </div>
 
+                                
                                 <!-- Teléfono -->
                                 <div>
                                     <label for="telefono" class="block text-sm font-medium text-gray-700 mb-2">
@@ -257,8 +258,10 @@
                                     <select name="estado_id" id="estado_id" required
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors">
                                         <option value="">Seleccione un estado</option>
-                                        @foreach(DB::table('estados')->select('id','nombre')->get() as $estado)
-                                            <option value="{{ $estado->id }}">{{ $estado->nombre }}</option>
+                                        @foreach(DB::table('estados')->orderBy('nombre')->get() as $estado)
+                                            <option value="{{ $estado->id }}" {{ old('estado_id') == $estado->id ? 'selected' : '' }}>
+                                                {{ $estado->nombre }}
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -527,6 +530,38 @@
                         <input type="hidden" name="fecha_registro" value="{{ date('Y-m-d H:i:s') }}">
                     </div>
 
+                @elseif($selectedTable === 'municipios')
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">
+                            Información de Municipios
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Nombre -->
+                            <div>
+                                <label for="nombre" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Nombre <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" name="nombre" id="nombre" value="{{ old('nombre') }}" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                       placeholder="Ingrese nombre">
+                            </div>
+                            <!-- Estado -->
+                            <div>
+                                <label for="estado_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Estado <span class="text-red-500">*</span>
+                                </label>
+                                <select name="estado_id" id="estado_id" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                    <option value="">Seleccione un estado</option>
+                                    @foreach(\DB::table('estados')->orderBy('nombre')->get() as $estado)
+                                        <option value="{{ $estado->id }}" {{ old('estado_id') == $estado->id ? 'selected' : '' }}>
+                                            {{ $estado->nombre }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 @else
                     <!-- Formulario genérico para otras tablas -->
                     <div class="bg-gray-50 rounded-lg p-6">

@@ -10,7 +10,7 @@ class AlumnosDescargaController extends Controller
     public function index()
     {
         try {
-            // Obtener alumnos recientes (últimos 30 días) con datos básicos
+            // Obtener alumnos recientes (últimos 30 días) con datos básicos - SOLO ACTIVOS
             $alumnos = DB::table('alumno')
                 ->select([
                     'alumno.id',
@@ -21,6 +21,7 @@ class AlumnosDescargaController extends Controller
                     'alumno.fecha_registro'
                 ])
                 ->where('alumno.fecha_registro', '>=', now()->subDays(30))
+                ->where('alumno.status_id', 1) // AGREGADO: Solo alumnos activos
                 ->orderBy('alumno.fecha_registro', 'desc')
                 ->get();
 

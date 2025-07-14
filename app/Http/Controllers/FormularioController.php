@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\TemplateProcessor;
+use Illuminate\Support\Facades\Session;
 
 class FormularioController extends Controller
 {
@@ -30,10 +31,44 @@ class FormularioController extends Controller
     public function guardarDatosAlumno(Request $request)
     {
         try {
-            $request->session()->put('datos_alumno', $request->all());
+            // VALIDAR los datos del alumno
+            $request->validate([
+                'correo_institucional' => 'required|email|ends_with:@cbta256.edu.mx',
+                'telefono' => 'required|digits:10',
+                'apellido_paterno' => 'required|string|max:45',
+                'apellido_materno' => 'required|string|max:45',
+                'nombre' => 'required|string|max:45',
+                'edad' => 'required|exists:edad,id',
+                'sexo' => 'required|in:1,2',
+                'localidad' => 'required|string|max:100',
+                'cp' => 'required|digits:5',
+                'estado' => 'required|exists:estados,id',
+                'municipio' => 'required|exists:municipios,id',
+            ]);
+
+            // MAPEAR correctamente los campos
+            $datosAlumno = [
+                'correo_institucional' => $request->correo_institucional,
+                'apellido_p' => $request->apellido_paterno, // MAPEO CORRECTO
+                'apellido_m' => $request->apellido_materno,  // MAPEO CORRECTO
+                'nombre' => $request->nombre,
+                'telefono' => $request->telefono,
+                'sexo_id' => $request->sexo,                 // MAPEO CORRECTO
+                'edad_id' => $request->edad,                 // MAPEO CORRECTO
+                'localidad' => $request->localidad,
+                'cp' => $request->cp,
+                'municipios_id' => $request->municipio,      // MAPEO CORRECTO
+            ];
+
+            // Guardar en sesión
+            Session::put('datos_alumno', $datosAlumno);
+            
             return redirect('/escolaridad');
-        } catch (\Throwable $e) {
-            return redirect('/datos-alumno')->with('error', 'No se pudieron guardar los datos del alumno. Intenta más tarde.');
+
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Error al validar datos: ' . $e->getMessage());
         }
     }
 
@@ -49,10 +84,35 @@ class FormularioController extends Controller
     public function guardarEscolaridad(Request $request)
     {
         try {
-            $request->session()->put('datos_escolaridad', $request->all());
+            // VALIDAR los datos de escolaridad
+            $request->validate([
+                'matricula' => 'required|digits:14',
+                'meses_servicio' => 'required|integer|min:1|max:12',
+                'modalidad_id' => 'required|exists:modalidad,id',
+                'carreras_id' => 'required|exists:carreras,id',
+                'semestres_id' => 'required|exists:semestres,id',
+                'grupos_id' => 'required|exists:grupos,id',
+            ]);
+
+            // MAPEAR correctamente los campos
+            $datosEscolaridad = [
+                'numero_control' => $request->matricula,    // MAPEO CORRECTO
+                'meses_servicio' => $request->meses_servicio,
+                'modalidad_id' => $request->modalidad_id,
+                'carreras_id' => $request->carreras_id,
+                'semestres_id' => $request->semestres_id,
+                'grupos_id' => $request->grupos_id,
+            ];
+
+            // Guardar en sesión
+            Session::put('datos_escolaridad', $datosEscolaridad);
+            
             return redirect('/programa');
-        } catch (\Throwable $e) {
-            return redirect('/escolaridad')->with('error', 'No se pudieron guardar los datos de escolaridad.');
+
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Error al validar datos de escolaridad: ' . $e->getMessage());
         }
     }
 
@@ -67,110 +127,199 @@ class FormularioController extends Controller
 
     public function guardarTodo(Request $request)
     {
-        return DB::transaction(function() use ($request) {
-            // Incluye 'localidad' y 'municipio' en los datos del alumno
-            $datosAlumno = session('datos_alumno', $request->only([
-                'correo_institucional',
-                'apellido_paterno',
-                'apellido_materno',
-                'nombre',
-                'telefono',
-                'cp',
-                'sexo',
-                'edad',
-                'localidad',
-                'municipio'
-            ]));
-
-            if (!isset($datosAlumno['correo_institucional'])) {
-                return redirect('/datos-alumno')->with('error', 'No se encontraron los datos del alumno. Intenta nuevamente.');
+        try {
+            // OBTENER datos de la sesión de los formularios anteriores
+            $datosAlumno = Session::get('datos_alumno');
+            $datosEscolaridad = Session::get('datos_escolaridad');
+            
+            // DEBUG: Ver qué hay en la sesión
+            \Log::info('Datos de alumno en sesión:', $datosAlumno ?? []);
+            \Log::info('Datos de escolaridad en sesión:', $datosEscolaridad ?? []);
+            \Log::info('Datos de programa recibidos:', $request->all());
+            
+            // Validar que existan los datos previos
+            if (!$datosAlumno || !$datosEscolaridad) {
+                return redirect('/datos-alumno')->with('error', 'Sesión expirada. Inicia el registro nuevamente.');
             }
 
-            // ---------- PROCESAR ALUMNO ----------
-            $alumnoInsert = [
-                'correo_institucional'  => $datosAlumno['correo_institucional'],
-                'apellido_p'            => $datosAlumno['apellido_paterno'],
-                'apellido_m'            => $datosAlumno['apellido_materno'],
-                'nombre'                => $datosAlumno['nombre'],
-                'telefono'              => (int)$datosAlumno['telefono'],
-                'fecha_registro'        => Carbon::now()->format('Y-m-d H:i:s'),
-                'sexo_id'               => $datosAlumno['sexo'],
-                'status_id'             => 1,
-                'edad_id'               => (int)$datosAlumno['edad'],
-                'rol_id'                => 2,
-            ];
-
-            // Insertar alumno primero para obtener su ID
-            $alumno_id = DB::table('alumno')->insertGetId($alumnoInsert);
-
-            // ---------- PROCESAR UBICACIÓN ----------
-            $municipio = DB::table('municipios')
-                          ->where('nombre', $datosAlumno['municipio'])
-                          ->first();
-            $idMunicipio = $municipio ? $municipio->id : 1;
-
-            $ubicacionInsert = [
-                'alumno_id'      => $alumno_id,  // Cambio aquí - ahora ubicaciones tiene alumno_id
-                'localidad'      => $datosAlumno['localidad'],
-                'cp'             => (int)$datosAlumno['cp'],
-                'municipios_id'  => $idMunicipio,
-            ];
-
-            // Insertar ubicación
-            DB::table('ubicaciones')->insert($ubicacionInsert);
-
-            // Insertar la escolaridad del alumno
-            $datosEscolaridad = session('datos_escolaridad', $request->only([
-                'matricula',
-                'meses_servicio',
-                'modalidad_id',
-                'carreras_id',
-                'semestres_id',
-                'grupos_id'
-            ]));
-
-            if ($datosEscolaridad) {
-                $escolaridadInsert = [
-                    'numero_control' => $datosEscolaridad['matricula'],
-                    'meses_servicio' => (int)$datosEscolaridad['meses_servicio'],
-                    'alumno_id'      => $alumno_id,
-                    'modalidad_id'   => $datosEscolaridad['modalidad_id'],
-                    'carreras_id'    => $datosEscolaridad['carreras_id'],
-                    'semestres_id'   => $datosEscolaridad['semestres_id'],
-                    'grupos_id'      => $datosEscolaridad['grupos_id'],
-                ];
-                DB::table('escolaridad_alumno')->insert($escolaridadInsert);
-            }
-
-            // Recopilar datos del formulario de programa
-            $datosPrograma = $request->only([
-                'instituciones_id',
-                'otra_institucion',
-                'nombre_programa',
-                'encargado_nombre',
-                'titulos_id',
-                'puesto_encargado',
-                'metodo_servicio_id',
-                'telefono_institucion',
-                'fecha_inicio',
-                'fecha_final',
-                'tipos_programa_id',
-                'otro_programa'
+            // VALIDAR datos del programa
+            $request->validate([
+                'instituciones_id' => 'required',
+                'telefono_institucion' => 'required|digits:10',
+                'nombre_programa' => 'required|string|max:100',
+                'tipos_programa_id' => 'required',
+                'metodo_servicio_id' => 'required',
+                'fecha_inicio' => 'required|date',
+                'fecha_final' => 'required|date|after:fecha_inicio',
+                'titulos_id' => 'required',
+                'encargado_nombre' => 'required|string|max:100',
+                'puesto_encargado' => 'required|string|max:100',
             ]);
 
-            // Agregar el id del alumno y el status por defecto
-            $datosPrograma['alumno_id'] = $alumno_id;
-            $datosPrograma['status_id'] = 1;
+            $alumnoId = null;
 
-            // Insertar en la tabla programa_servicio_social
-            DB::table('programa_servicio_social')->insert($datosPrograma);
+            DB::transaction(function () use ($request, $datosAlumno, $datosEscolaridad, &$alumnoId) {
+                // 1. CREAR EL ALUMNO usando datos de la sesión
+                $alumnoId = DB::table('alumno')->insertGetId([
+                    'correo_institucional' => $datosAlumno['correo_institucional'],
+                    'apellido_p' => $datosAlumno['apellido_p'],
+                    'apellido_m' => $datosAlumno['apellido_m'],
+                    'nombre' => $datosAlumno['nombre'],
+                    'telefono' => $datosAlumno['telefono'],
+                    'fecha_registro' => Carbon::now(),
+                    'sexo_id' => $datosAlumno['sexo_id'],
+                    'status_id' => 1,
+                    'edad_id' => $datosAlumno['edad_id'],
+                    'rol_id' => 2
+                ]);
 
-            // Finalmente, olvidar los datos de sesión
-            session()->forget('datos_escolaridad');
-            session()->forget('datos_alumno');
+                \Log::info('Alumno creado con ID: ' . $alumnoId);
+
+                // 2. INSERTAR UBICACIÓN usando datos de la sesión
+                DB::table('ubicaciones')->insert([
+                    'alumno_id' => $alumnoId,
+                    'localidad' => $datosAlumno['localidad'],
+                    'cp' => $datosAlumno['cp'],
+                    'municipios_id' => $datosAlumno['municipios_id']
+                ]);
+
+                \Log::info('Ubicación creada para alumno: ' . $alumnoId);
+
+                // 3. INSERTAR ESCOLARIDAD usando datos de la sesión
+                DB::table('escolaridad_alumno')->insert([
+                    'numero_control' => $datosEscolaridad['numero_control'],
+                    'meses_servicio' => $datosEscolaridad['meses_servicio'],
+                    'alumno_id' => $alumnoId,
+                    'modalidad_id' => $datosEscolaridad['modalidad_id'],
+                    'carreras_id' => $datosEscolaridad['carreras_id'],
+                    'semestres_id' => $datosEscolaridad['semestres_id'],
+                    'grupos_id' => $datosEscolaridad['grupos_id']
+                ]);
+
+                \Log::info('Escolaridad creada para alumno: ' . $alumnoId);
+
+                // 4. MANEJAR INSTITUCIÓN (del formulario actual)
+                $institucionId = $request->instituciones_id;
+                
+                if ($request->instituciones_id === 'otra' && !empty($request->otra_institucion)) {
+                    \Log::info('Creando nueva institución: ' . $request->otra_institucion);
+                    
+                    // Verificar si la tabla tiene timestamps
+                    $hasTimestamps = DB::getSchemaBuilder()->hasColumn('instituciones', 'created_at');
+                    
+                    if ($hasTimestamps) {
+                        $institucionId = DB::table('instituciones')->insertGetId([
+                            'nombre' => $request->otra_institucion,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    } else {
+                        $institucionId = DB::table('instituciones')->insertGetId([
+                            'nombre' => $request->otra_institucion
+                        ]);
+                    }
+                    
+                    \Log::info('Nueva institución creada con ID: ' . $institucionId);
+                }
+
+                // 5. MANEJAR TIPO DE PROGRAMA (del formulario actual)
+                $tipoProgramaId = $request->tipos_programa_id;
+                
+                if ($request->tipos_programa_id === '0' && !empty($request->otro_programa)) {
+                    \Log::info('Creando nuevo tipo de programa: ' . $request->otro_programa);
+                    
+                    // Verificar si la tabla tiene timestamps
+                    $hasTimestamps = DB::getSchemaBuilder()->hasColumn('tipos_programa', 'created_at');
+                    
+                    if ($hasTimestamps) {
+                        $tipoProgramaId = DB::table('tipos_programa')->insertGetId([
+                            'tipo' => $request->otro_programa,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    } else {
+                        $tipoProgramaId = DB::table('tipos_programa')->insertGetId([
+                            'tipo' => $request->otro_programa
+                        ]);
+                    }
+                    
+                    \Log::info('Nuevo tipo de programa creado con ID: ' . $tipoProgramaId);
+                }
+
+                // 6. INSERTAR PROGRAMA DE SERVICIO SOCIAL (del formulario actual)
+                $hasTimestamps = DB::getSchemaBuilder()->hasColumn('programa_servicio_social', 'created_at');
+                
+                $programaData = [
+                    'alumno_id' => $alumnoId,
+                    'instituciones_id' => $institucionId,
+                    'titulos_id' => $request->titulos_id,
+                    'metodo_servicio_id' => $request->metodo_servicio_id,
+                    'tipos_programa_id' => $tipoProgramaId,
+                    'nombre_programa' => $request->nombre_programa,
+                    'encargado_nombre' => $request->encargado_nombre,
+                    'puesto_encargado' => $request->puesto_encargado,
+                    'telefono_institucion' => $request->telefono_institucion,
+                    'fecha_inicio' => $request->fecha_inicio,
+                    'fecha_final' => $request->fecha_final,
+                    'status_id' => 1
+                ];
+
+                if ($hasTimestamps) {
+                    $programaData['created_at'] = now();
+                    $programaData['updated_at'] = now();
+                }
+
+                DB::table('programa_servicio_social')->insert($programaData);
+
+                \Log::info('Programa de servicio social creado para alumno: ' . $alumnoId);
+            });
+
+            // Verificar que el alumno se creó
+            if (!$alumnoId) {
+                throw new \Exception('No se pudo crear el registro del alumno');
+            }
+
+            // Obtener datos para la página de éxito
+            $alumno = DB::table('alumno')->where('id', $alumnoId)->first();
+            $escolaridad = DB::table('escolaridad_alumno')
+                ->leftJoin('carreras', 'escolaridad_alumno.carreras_id', '=', 'carreras.id')
+                ->where('escolaridad_alumno.alumno_id', $alumnoId)
+                ->select('escolaridad_alumno.numero_control', 'carreras.nombre as carrera_nombre')
+                ->first();
+
+            // Obtener el nombre de la institución
+            $institucionNombre = '';
+            if ($request->instituciones_id === 'otra') {
+                $institucionNombre = $request->otra_institucion;
+            } else {
+                $institucion = DB::table('instituciones')->where('id', $request->instituciones_id)->first();
+                $institucionNombre = $institucion ? $institucion->nombre : 'No disponible';
+            }
+
+            // Guardar información en la sesión para la página de éxito
+            Session::put([
+                'registro_exitoso' => true,
+                'alumno_id' => $alumnoId,
+                'alumno_nombre' => $alumno->nombre . ' ' . $alumno->apellido_p . ' ' . $alumno->apellido_m,
+                'numero_control' => $escolaridad->numero_control ?? 'No disponible',
+                'carrera_nombre' => $escolaridad->carrera_nombre ?? 'No disponible',
+                'programa_nombre' => $request->nombre_programa,
+                'institucion_nombre' => $institucionNombre
+            ]);
+
+            // Limpiar datos temporales de la sesión
+            Session::forget(['datos_alumno', 'datos_escolaridad']);
+
+            return redirect('/final')->with('success', 'Registro completado exitosamente');
+
+        } catch (\Exception $e) {
+            \Log::error('Error en guardarTodo: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             
-            return view('final', ['nombre' => $datosAlumno['nombre']]);
-        });
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Error al guardar la información: ' . $e->getMessage());
+        }
     }
 
     public function downloadEditedWord($id)

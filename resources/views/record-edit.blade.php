@@ -1,4 +1,3 @@
-
 @extends('layouts.blaze')
 
 @section('title', "Editar Registro - {$selectedTable}")
@@ -60,7 +59,7 @@
 
     <!-- Formulario principal -->
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <form action="{{ route('record.update', ['table' => $selectedTable, 'id' => $record->id]) }}" method="POST" enctype="multipart/form-data" id="editForm">
+        <form method="POST" action="{{ route('record.update', ['table' => $selectedTable, 'id' => $record->id]) }}" class="space-y-6">
             @csrf
             @method('PUT')
             
@@ -89,14 +88,15 @@
 
             <div class="p-6">
                 @if($selectedTable === 'alumno')
-                    <!-- Formulario específico para alumno -->
+                    <!-- Formulario completo para alumno con todas las secciones -->
                     <div class="space-y-8">
-                        <!-- Información Personal -->
+                        <!-- SECCIÓN 1: INFORMACIÓN PERSONAL DEL ALUMNO -->
                         <div class="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-6">
-                            <div class="flex items-center mb-4">
+                            <div class="flex items-center mb-6">
                                 <div class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">1</div>
-                                <h3 class="text-lg font-semibold text-gray-900">Información Personal</h3>
+                                <h3 class="text-lg font-semibold text-gray-900">Información Personal del Alumno</h3>
                             </div>
+                            
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <!-- Nombre -->
                                 <div>
@@ -145,7 +145,20 @@
                                     </label>
                                     <input type="tel" name="telefono" id="telefono" value="{{ old('telefono', $record->telefono ?? '') }}" required
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                           placeholder="4271234567">
+                                           placeholder="4271234567" maxlength="10">
+                                </div>
+
+                                <!-- Código Postal -->
+                                @php
+                                    $ubicacion = DB::table('ubicaciones')->where('alumno_id', $record->id)->first();
+                                @endphp
+                                <div>
+                                    <label for="ubicacion_cp" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Código Postal <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="ubicacion_cp" id="ubicacion_cp" value="{{ old('ubicacion_cp', $ubicacion->cp ?? '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                           placeholder="12345" maxlength="5">
                                 </div>
 
                                 <!-- Edad -->
@@ -195,21 +208,326 @@
                                         @endforeach
                                     </select>
                                 </div>
+                            </div>
+                        </div>
 
-                                <!-- Status -->
+                        <!-- SECCIÓN 2: INFORMACIÓN DE UBICACIÓN -->
+                        <div class="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-6">
+                            <div class="flex items-center mb-6">
+                                <div class="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">2</div>
+                                <h3 class="text-lg font-semibold text-gray-900">Información de Ubicación</h3>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- Localidad -->
                                 <div>
-                                    <label for="status_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Status <span class="text-red-500">*</span>
+                                    <label for="ubicacion_localidad" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Localidad <span class="text-red-500">*</span>
                                     </label>
-                                    <select name="status_id" id="status_id" required
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                                        <option value="">Seleccione una opción</option>
-                                        @foreach(DB::table('status')->get() as $status)
-                                            <option value="{{ $status->id }}" {{ (old('status_id', $record->status_id ?? '') == $status->id) ? 'selected' : '' }}>
-                                                {{ $status->tipo }}
+                                    <input type="text" name="ubicacion_localidad" id="ubicacion_localidad" value="{{ old('ubicacion_localidad', $ubicacion->localidad ?? '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                                           placeholder="Nombre de la localidad">
+                                </div>
+
+                                <!-- Estado -->
+                                <div>
+                                    <label for="ubicacion_estado_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Estado <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="ubicacion_estado_id" id="ubicacion_estado_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors">
+                                        <option value="">Seleccione un estado</option>
+                                        @foreach(DB::table('estados')->get() as $estado)
+                                            @php
+                                                $currentEstadoId = null;
+                                                if($ubicacion && $ubicacion->municipios_id) {
+                                                    $municipio = DB::table('municipios')->where('id', $ubicacion->municipios_id)->first();
+                                                    $currentEstadoId = $municipio ? $municipio->estado_id : null;
+                                                }
+                                            @endphp
+                                            <option value="{{ $estado->id }}" {{ (old('ubicacion_estado_id', $currentEstadoId) == $estado->id) ? 'selected' : '' }}>
+                                                {{ $estado->nombre }}
                                             </option>
                                         @endforeach
                                     </select>
+                                </div>
+
+                                <!-- Municipio -->
+                                <div>
+                                    <label for="ubicacion_municipios_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Municipio <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="ubicacion_municipios_id" id="ubicacion_municipios_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors">
+                                        <option value="">Primero seleccione un estado</option>
+                                        @foreach(DB::table('municipios')->get() as $municipio)
+                                            <option value="{{ $municipio->id }}" {{ (old('ubicacion_municipios_id', $ubicacion->municipios_id ?? '') == $municipio->id) ? 'selected' : '' }}>
+                                                {{ $municipio->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Código Postal (Ubicación) duplicado -->
+                                <div>
+                                    <label for="ubicacion_cp_duplicate" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Código Postal (Ubicación) <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="ubicacion_cp_duplicate" id="ubicacion_cp_duplicate" value="{{ old('ubicacion_cp', $ubicacion->cp ?? '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                                           placeholder="Ej: 12345" maxlength="5" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 3: INFORMACIÓN ACADÉMICA -->
+                        @php
+                            $escolaridad = DB::table('escolaridad_alumno')->where('alumno_id', $record->id)->first();
+                        @endphp
+                        <div class="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-6">
+                            <div class="flex items-center mb-6">
+                                <div class="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">3</div>
+                                <h3 class="text-lg font-semibold text-gray-900">Información Académica</h3>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- Número de Control -->
+                                <div>
+                                    <label for="escolaridad_numero_control" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Número de Control <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="escolaridad_numero_control" id="escolaridad_numero_control" value="{{ old('escolaridad_numero_control', $escolaridad->numero_control ?? '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                                           placeholder="12345678" maxlength="14">
+                                </div>
+
+                                <!-- Meses de Servicio -->
+                                <div>
+                                    <label for="escolaridad_meses_servicio" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Meses de Servicio <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" name="escolaridad_meses_servicio" id="escolaridad_meses_servicio" value="{{ old('escolaridad_meses_servicio', $escolaridad->meses_servicio ?? '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                                           placeholder="6" min="1" max="12">
+                                </div>
+
+                                <!-- Carrera -->
+                                <div>
+                                    <label for="escolaridad_carreras_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Carrera <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="escolaridad_carreras_id" id="escolaridad_carreras_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
+                                        <option value="">Seleccione una carrera</option>
+                                        @foreach(DB::table('carreras')->get() as $carrera)
+                                            <option value="{{ $carrera->id }}" {{ (old('escolaridad_carreras_id', $escolaridad->carreras_id ?? '') == $carrera->id) ? 'selected' : '' }}>
+                                                {{ $carrera->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Semestre -->
+                                <div>
+                                    <label for="escolaridad_semestres_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Semestre <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="escolaridad_semestres_id" id="escolaridad_semestres_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
+                                        <option value="">Seleccione un semestre</option>
+                                        @foreach(DB::table('semestres')->get() as $semestre)
+                                            <option value="{{ $semestre->id }}" {{ (old('escolaridad_semestres_id', $escolaridad->semestres_id ?? '') == $semestre->id) ? 'selected' : '' }}>
+                                                {{ $semestre->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Grupo -->
+                                <div>
+                                    <label for="escolaridad_grupos_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Grupo <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="escolaridad_grupos_id" id="escolaridad_grupos_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
+                                        <option value="">Seleccione un grupo</option>
+                                        @foreach(DB::table('grupos')->get() as $grupo)
+                                            <option value="{{ $grupo->id }}" {{ (old('escolaridad_grupos_id', $escolaridad->grupos_id ?? '') == $grupo->id) ? 'selected' : '' }}>
+                                                {{ $grupo->letra }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Modalidad -->
+                                <div>
+                                    <label for="escolaridad_modalidad_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Modalidad <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="escolaridad_modalidad_id" id="escolaridad_modalidad_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
+                                        <option value="">Seleccione una modalidad</option>
+                                        @foreach(DB::table('modalidad')->get() as $modalidad)
+                                            <option value="{{ $modalidad->id }}" {{ (old('escolaridad_modalidad_id', $escolaridad->modalidad_id ?? '') == $modalidad->id) ? 'selected' : '' }}>
+                                                {{ $modalidad->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 4: PROGRAMA DE SERVICIO SOCIAL -->
+                        @php
+                            $programa = DB::table('programa_servicio_social')->where('alumno_id', $record->id)->first();
+                        @endphp
+                        <div class="bg-gradient-to-r from-red-50 to-red-100 rounded-xl p-6">
+                            <div class="flex items-center mb-6">
+                                <div class="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">4</div>
+                                <h3 class="text-lg font-semibold text-gray-900">Programa de Servicio Social</h3>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- Nombre del Programa -->
+                                <div>
+                                    <label for="programa_nombre_programa" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Nombre del Programa <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="programa_nombre_programa" id="programa_nombre_programa" value="{{ old('programa_nombre_programa', $programa->nombre_programa ?? '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                                           placeholder="Nombre del programa de servicio social">
+                                </div>
+
+                                <!-- Nombre del Encargado -->
+                                <div>
+                                    <label for="programa_encargado_nombre" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Nombre del Encargado <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="programa_encargado_nombre" id="programa_encargado_nombre" value="{{ old('programa_encargado_nombre', $programa->encargado_nombre ?? '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                                           placeholder="Nombre completo del encargado">
+                                </div>
+
+                                <!-- Fecha de Inicio -->
+                                <div>
+                                    <label for="programa_fecha_inicio" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Fecha de Inicio <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="date" name="programa_fecha_inicio" id="programa_fecha_inicio" value="{{ old('programa_fecha_inicio', $programa->fecha_inicio ? date('Y-m-d', strtotime($programa->fecha_inicio)) : '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors">
+                                </div>
+
+                                <!-- Fecha Final -->
+                                <div>
+                                    <label for="programa_fecha_final" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Fecha Final <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="date" name="programa_fecha_final" id="programa_fecha_final" value="{{ old('programa_fecha_final', $programa->fecha_final ? date('Y-m-d', strtotime($programa->fecha_final)) : '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors">
+                                </div>
+
+                                <!-- Institución -->
+                                <div>
+                                    <label for="programa_instituciones_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Institución <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="programa_instituciones_id" id="programa_instituciones_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors">
+                                        <option value="">Seleccione una institución</option>
+                                        @foreach(DB::table('instituciones')->get() as $institucion)
+                                            <option value="{{ $institucion->id }}" {{ (old('programa_instituciones_id', $programa->instituciones_id ?? '') == $institucion->id) ? 'selected' : '' }}>
+                                                {{ $institucion->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Título -->
+                                <div>
+                                    <label for="programa_titulos_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Título <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="programa_titulos_id" id="programa_titulos_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors">
+                                        <option value="">Seleccione un título</option>
+                                        @foreach(DB::table('titulos')->get() as $titulo)
+                                            <option value="{{ $titulo->id }}" {{ (old('programa_titulos_id', $programa->titulos_id ?? '') == $titulo->id) ? 'selected' : '' }}>
+                                                {{ $titulo->titulo }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Puesto del Encargado -->
+                                <div>
+                                    <label for="programa_puesto_encargado" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Puesto del Encargado <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="programa_puesto_encargado" id="programa_puesto_encargado" value="{{ old('programa_puesto_encargado', $programa->puesto_encargado ?? '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                                           placeholder="Cargo o puesto del encargado">
+                                </div>
+
+                                <!-- Método de Servicio -->
+                                <div>
+                                    <label for="programa_metodo_servicio_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Método de Servicio <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="programa_metodo_servicio_id" id="programa_metodo_servicio_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors">
+                                        <option value="">Seleccione un método</option>
+                                        @foreach(DB::table('metodo_servicio')->get() as $metodo)
+                                            <option value="{{ $metodo->id }}" {{ (old('programa_metodo_servicio_id', $programa->metodo_servicio_id ?? '') == $metodo->id) ? 'selected' : '' }}>
+                                                {{ $metodo->metodo }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Tipo de Programa -->
+                                <div>
+                                    <label for="programa_tipos_programa_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Tipo de Programa <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="programa_tipos_programa_id" id="programa_tipos_programa_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors">
+                                        <option value="">Seleccione un tipo</option>
+                                        @foreach(DB::table('tipos_programa')->get() as $tipo)
+                                            <option value="{{ $tipo->id }}" {{ (old('programa_tipos_programa_id', $programa->tipos_programa_id ?? '') == $tipo->id) ? 'selected' : '' }}>
+                                                {{ $tipo->tipo }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Teléfono de la Institución -->
+                                <div>
+                                    <label for="programa_telefono_institucion" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Teléfono de la Institución <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="tel" name="programa_telefono_institucion" id="programa_telefono_institucion" value="{{ old('programa_telefono_institucion', $programa->telefono_institucion ?? '') }}" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                                           placeholder="Teléfono de contacto" maxlength="10">
+                                </div>
+
+                                <!-- Otra Institución (Opcional) -->
+                                <div>
+                                    <label for="programa_otra_institucion" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Otra Institución (Opcional)
+                                    </label>
+                                    <input type="text" name="programa_otra_institucion" id="programa_otra_institucion" value="{{ old('programa_otra_institucion', $programa->otra_institucion ?? '') }}"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                                           placeholder="Si no está en la lista anterior">
+                                </div>
+
+                                <!-- Otro Programa (Opcional) -->
+                                <div>
+                                    <label for="programa_otro_programa" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Otro Programa (Opcional)
+                                    </label>
+                                    <input type="text" name="programa_otro_programa" id="programa_otro_programa" value="{{ old('programa_otro_programa', $programa->otro_programa ?? '') }}"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                                           placeholder="Si no está en la lista anterior">
                                 </div>
                             </div>
                         </div>
@@ -228,6 +546,211 @@
                                         <span class="text-gray-600 ml-2">{{ date('d/m/Y H:i', strtotime($record->fecha_registro)) }}</span>
                                     </div>
                                 @endif
+                            </div>
+                        </div>
+                    </div>
+
+                @elseif($selectedTable === 'programa_servicio_social')
+                    <!-- Formulario específico para programa de servicio social -->
+                    <div class="p-6">
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                                Editar Programa de Servicio Social
+                            </h3>
+                            <p class="text-sm text-gray-600">
+                                Modifica la información del registro seleccionado
+                            </p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <!-- Alumno ID (Solo lectura) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Alumno (Solo lectura)
+                                </label>
+                                @php
+                                    $alumno = DB::table('alumno')->where('id', $record->alumno_id)->first();
+                                @endphp
+                                <input type="text" readonly
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                                       value="{{ $alumno ? $alumno->nombre . ' ' . $alumno->apellido_p . ' ' . $alumno->apellido_m : $record->alumno_id }}">
+                                <input type="hidden" name="alumno_id" value="{{ $record->alumno_id }}">
+                            </div>
+
+                            <!-- Instituciones -->
+                            <div>
+                                <label for="instituciones_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Institución <span class="text-red-500">*</span>
+                                </label>
+                                <select name="instituciones_id" id="instituciones_id" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Seleccione una institución</option>
+                                    @foreach(DB::table('instituciones')->orderBy('nombre')->get() as $institucion)
+                                        <option value="{{ $institucion->id }}" {{ $record->instituciones_id == $institucion->id ? 'selected' : '' }}>
+                                            {{ $institucion->nombre }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- Otra Institución -->
+                            <div>
+                                <label for="otra_institucion" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Otra Institución
+                                </label>
+                                <input type="text" name="otra_institucion" id="otra_institucion" 
+                                       value="{{ old('otra_institucion', $record->otra_institucion) }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Ingrese otra institución">
+                            </div>
+
+                            <!-- Nombre Programa -->
+                            <div>
+                                <label for="nombre_programa" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Nombre Programa <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" name="nombre_programa" id="nombre_programa" required
+                                       value="{{ old('nombre_programa', $record->nombre_programa) }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Nombre del programa">
+                            </div>
+
+                            <!-- Encargado Nombre -->
+                            <div>
+                                <label for="encargado_nombre" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Encargado Nombre <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" name="encargado_nombre" id="encargado_nombre" required
+                                       value="{{ old('encargado_nombre', $record->encargado_nombre) }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Nombre del encargado">
+                            </div>
+
+                            <!-- Títulos -->
+                            <div>
+                                <label for="titulos_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Título <span class="text-red-500">*</span>
+                                </label>
+                                <select name="titulos_id" id="titulos_id" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Seleccione un título</option>
+                                    @foreach(DB::table('titulos')->orderBy('titulo')->get() as $titulo)
+                                        <option value="{{ $titulo->id }}" {{ $record->titulos_id == $titulo->id ? 'selected' : '' }}>
+                                            {{ $titulo->titulo }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- Puesto Encargado -->
+                            <div>
+                                <label for="puesto_encargado" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Puesto Encargado <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" name="puesto_encargado" id="puesto_encargado" required
+                                       value="{{ old('puesto_encargado', $record->puesto_encargado) }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Puesto del encargado">
+                            </div>
+
+                            <!-- Método Servicio -->
+                            <div>
+                                <label for="metodo_servicio_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Método Servicio <span class="text-red-500">*</span>
+                                </label>
+                                <select name="metodo_servicio_id" id="metodo_servicio_id" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Seleccione un método</option>
+                                    @foreach(DB::table('metodo_servicio')->orderBy('metodo')->get() as $metodo)
+                                        <option value="{{ $metodo->id }}" {{ $record->metodo_servicio_id == $metodo->id ? 'selected' : '' }}>
+                                            {{ $metodo->metodo }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- Teléfono Institución -->
+                            <div>
+                                <label for="telefono_institucion" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Teléfono Institución <span class="text-red-500">*</span>
+                                </label>
+                                <input type="tel" name="telefono_institucion" id="telefono_institucion" required
+                                       value="{{ old('telefono_institucion', $record->telefono_institucion) }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Teléfono de la institución" maxlength="10">
+                            </div>
+
+                            <!-- Fecha Inicio -->
+                            <div>
+                                <label for="fecha_inicio" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Fecha Inicio <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" name="fecha_inicio" id="fecha_inicio" required
+                                       value="{{ old('fecha_inicio', $record->fecha_inicio) }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+
+                            <!-- Fecha Final -->
+                            <div>
+                                <label for="fecha_final" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Fecha Final <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" name="fecha_final" id="fecha_final" required
+                                       value="{{ old('fecha_final', $record->fecha_final) }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+
+                            <!-- Tipos Programa -->
+                            <div>
+                                <label for="tipos_programa_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Tipo Programa <span class="text-red-500">*</span>
+                                </label>
+                                <select name="tipos_programa_id" id="tipos_programa_id" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Seleccione un tipo</option>
+                                    @foreach(DB::table('tipos_programa')->orderBy('tipo')->get() as $tipo)
+                                        <option value="{{ $tipo->id }}" {{ $record->tipos_programa_id == $tipo->id ? 'selected' : '' }}>
+                                            {{ $tipo->tipo }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- Otro Programa -->
+                            <div>
+                                <label for="otro_programa" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Otro Programa
+                                </label>
+                                <input type="text" name="otro_programa" id="otro_programa"
+                                       value="{{ old('otro_programa', $record->otro_programa) }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Ingrese otro programa">
+                            </div>
+
+                            <!-- Status -->
+                            <div>
+                                <label for="status_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Status <span class="text-red-500">*</span>
+                                </label>
+                                
+                                <select name="status_id" id="status_id" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    @foreach(DB::table('status')->whereIn('id', [3, 4])->orderBy('tipo')->get() as $status)
+                                        <option value="{{ $status->id }}" {{ $record->status_id == $status->id ? 'selected' : '' }}>
+                                            {{ $status->tipo }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                
+                                <!-- Las advertencias se agregan dinámicamente con JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Información del Sistema -->
+                        <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <h4 class="text-lg font-semibold text-gray-900 mb-2">Información del Sistema</h4>
+                            <div class="text-sm text-gray-600">
+                                <span class="font-medium">ID del Registro:</span> {{ $record->id }}
                             </div>
                         </div>
                     </div>
@@ -334,22 +857,14 @@
             </div>
 
             <!-- Botones de acción -->
-            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-                <a href="{{ route('dashboard', ['table' => $selectedTable]) }}" 
-                   class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m0 7h18"/>
-                    </svg>
+            <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                <a href="{{ route('database.overview', ['table' => $selectedTable]) }}" 
+                   class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
                     Cancelar
                 </a>
-
                 <button type="submit" 
-                        class="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-amber-600 border border-transparent rounded-lg hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm"
-                        id="submitBtn">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
-                    <span id="submitText">Actualizar Registro</span>
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Actualizar Registro
                 </button>
             </div>
         </form>
@@ -360,6 +875,73 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
+    // Sincronizar códigos postales (solo para alumnos)
+    @if($selectedTable === 'alumno')
+        $('#ubicacion_cp').on('input', function() {
+            var value = this.value;
+            $('#ubicacion_cp_duplicate').val(value);
+        });
+
+        $('#ubicacion_cp_duplicate').on('input', function() {
+            var value = this.value;
+            $('#ubicacion_cp').val(value);
+        });
+
+        // Carga dinámica de municipios
+        $('#ubicacion_estado_id').change(function(){
+            var estadoId = $(this).val();
+            if(estadoId){
+                $.ajax({
+                    url: '/municipios-por-estado/' + estadoId,
+                    dataType: 'json',
+                    success: function(data){
+                        var opciones = '<option value="">Seleccione un municipio</option>';
+                        $.each(data, function(i, municipio){
+                            opciones += '<option value="'+ municipio.id +'">'+ municipio.nombre +'</option>';
+                        });
+                        $('#ubicacion_municipios_id').html(opciones);
+                    }
+                });
+            } else {
+                $('#ubicacion_municipios_id').html('<option value="">Primero seleccione un estado</option>');
+            }
+        });
+
+        // Validaciones específicas para alumnos
+        $('#telefono, #programa_telefono_institucion').on('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
+        });
+
+        $('#ubicacion_cp, #ubicacion_cp_duplicate').on('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 5);
+        });
+
+        $('#escolaridad_numero_control').on('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 14);
+        });
+
+        $('#correo_institucional').on('blur', function() {
+            var email = $(this).val();
+            if (email && !email.endsWith('@cbta256.edu.mx')) {
+                alert('El correo debe terminar en @cbta256.edu.mx');
+                $(this).focus();
+            }
+        });
+
+        // Capitalizar nombres automáticamente
+        $('#nombre, #apellido_p, #apellido_m, #ubicacion_localidad, #programa_encargado_nombre').on('input', function() {
+            var start = this.selectionStart;
+            var end = this.selectionEnd;
+            
+            this.value = this.value.toLowerCase()
+                .replace(/(?:^|\s)\S/g, function(a) { 
+                    return a.toUpperCase(); 
+                });
+                
+            this.setSelectionRange(start, end);
+        });
+    @endif
+
     // Validación del formulario antes de enviar
     $('#editForm').submit(function(e) {
         var submitBtn = $('#submitBtn');
@@ -406,6 +988,94 @@ $(document).ready(function() {
             
         this.setSelectionRange(start, end);
     });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fechaFinalInput = document.getElementById('fecha_final');
+    const statusSelect = document.getElementById('status_id');
+    const statusContainer = statusSelect.parentElement;
+    
+    function validarFechaYStatus() {
+        // Obtener fecha real del cliente (navegador)
+        const hoy = new Date();
+        const fechaFinal = new Date(fechaFinalInput.value);
+        
+        // Resetear horas para comparar solo fechas
+        hoy.setHours(0, 0, 0, 0);
+        fechaFinal.setHours(0, 0, 0, 0);
+        
+        const fechaPasada = hoy > fechaFinal;
+        
+        console.log('=== DEBUG FECHAS ===');
+        console.log('Fecha de hoy (cliente):', hoy.toLocaleDateString('es-MX'));
+        console.log('Fecha final del programa:', fechaFinal.toLocaleDateString('es-MX'));
+        console.log('¿Fecha pasada?:', fechaPasada);
+        console.log('===================');
+        
+        // Remover advertencias anteriores
+        const advertenciasAnteriores = statusContainer.querySelectorAll('.advertencia-dinamica');
+        advertenciasAnteriores.forEach(el => el.remove());
+        
+        // Rehabilitar todas las opciones primero
+        Array.from(statusSelect.options).forEach(option => {
+            option.disabled = false;
+            option.textContent = option.textContent.replace(' (No disponible - fecha expirada)', '');
+        });
+        
+        if (fechaPasada) {
+            // Deshabilitar opción "En proceso" (id=3) solo si la fecha YA PASÓ
+            Array.from(statusSelect.options).forEach(option => {
+                if (option.value == '3') {
+                    option.disabled = true;
+                    option.textContent += ' (No disponible - fecha expirada)';
+                }
+            });
+            
+            // Mostrar advertencia roja
+            const advertencia = document.createElement('div');
+            advertencia.className = 'advertencia-dinamica mt-2 p-3 bg-red-50 border border-red-200 rounded-lg';
+            advertencia.innerHTML = `
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-red-400 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                    <div class="text-sm">
+                        <p class="font-medium text-red-800">El servicio debería estar finalizado</p>
+                        <p class="text-red-700 mt-1">
+                            La fecha de finalización (${fechaFinal.toLocaleDateString('es-MX')}) ya ha pasado. 
+                            Solo se puede marcar como "Finalizado" o actualizar la fecha de finalización.
+                        </p>
+                    </div>
+                </div>
+            `;
+            statusContainer.appendChild(advertencia);
+        } else {
+            // Mostrar info azul - servicio activo
+            const info = document.createElement('div');
+            info.className = 'advertencia-dinamica mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg';
+            info.innerHTML = `
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-blue-400 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div class="text-sm">
+                        <p class="font-medium text-blue-800">Servicio activo hasta ${fechaFinal.toLocaleDateString('es-MX')}</p>
+                        <p class="text-blue-700 mt-1">
+                            Puede cambiar entre "En proceso" y "Finalizado". Hoy es ${hoy.toLocaleDateString('es-MX')}.
+                        </p>
+                    </div>
+                </div>
+            `;
+            statusContainer.appendChild(info);
+        }
+    }
+    
+    // Validar al cargar la página
+    validarFechaYStatus();
+    
+    // Validar cuando cambie la fecha
+    fechaFinalInput.addEventListener('change', validarFechaYStatus);
 });
 </script>
 @endsection
