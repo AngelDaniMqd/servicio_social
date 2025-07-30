@@ -77,6 +77,7 @@
                                 <input type="email" name="correo_institucional" id="correo" required 
                                        pattern="^[a-zA-Z0-9._%+-]+@cbta256\.edu\.mx$" 
                                        placeholder="ejemplo@cbta256.edu.mx"
+                                       value="{{ old('correo_institucional', $datosGuardados['correo_institucional'] ?? '') }}"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base">
                                 <div class="absolute inset-y-0 right-0 flex items-center pr-3">
                                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,6 +97,7 @@
                                 <input type="tel" name="telefono" id="telefono" required 
                                        maxlength="10" minlength="10" pattern="[0-9]{10}" 
                                        placeholder="1234567890"
+                                       value="{{ old('telefono', $datosGuardados['telefono'] ?? '') }}"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base">
                                 <div class="absolute inset-y-0 right-0 flex items-center pr-3">
                                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,6 +129,7 @@
                                 </label>
                                 <input type="text" name="apellido_paterno" id="apellido_paterno" required 
                                        maxlength="45" placeholder="García"
+                                       value="{{ old('apellido_paterno', $datosGuardados['apellido_paterno'] ?? '') }}"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
                                 <div class="error-message hidden text-red-500 text-sm" id="apellido_paterno-error"></div>
                             </div>
@@ -138,6 +141,7 @@
                                 </label>
                                 <input type="text" name="apellido_materno" id="apellido_materno" required 
                                        maxlength="45" placeholder="López"
+                                       value="{{ old('apellido_materno', $datosGuardados['apellido_materno'] ?? '') }}"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
                                 <div class="error-message hidden text-red-500 text-sm" id="apellido_materno-error"></div>
                             </div>
@@ -150,6 +154,7 @@
                             </label>
                             <input type="text" name="nombre" id="nombre" required 
                                    maxlength="45" placeholder="Juan Carlos"
+                                    value="{{ old('nombre', $datosGuardados['nombre'] ?? '') }}"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
                             <div class="error-message hidden text-red-500 text-sm" id="nombre-error"></div>
                         </div>
@@ -163,9 +168,11 @@
                                 </label>
                                 <select name="edad" id="edad" required 
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona tu edad</option>
+                                    <option value="" disabled {{ !old('edad', $datosGuardados['edad'] ?? '') ? 'selected' : '' }}>Selecciona tu edad</option>
                                     @foreach($edades as $edad)
-                                        <option value="{{ $edad->id }}">{{ $edad->edades }} años</option>
+                                        <option value="{{ $edad->id }}" {{ (old('edad', $datosGuardados['edad'] ?? '') == $edad->id) ? 'selected' : '' }}>
+                                            {{ $edad->edades }} años
+                                        </option>
                                     @endforeach
                                 </select>
                                 <div class="error-message hidden text-red-500 text-sm" id="edad-error"></div>
@@ -178,9 +185,9 @@
                                 </label>
                                 <select name="sexo" id="sexo" required 
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona tu sexo</option>
-                                    <option value="1">Femenino</option>
-                                    <option value="2">Masculino</option>
+                                    <option value="" disabled {{ !old('sexo', $datosGuardados['sexo'] ?? '') ? 'selected' : '' }}>Selecciona tu sexo</option>
+                                    <option value="1" {{ (old('sexo', $datosGuardados['sexo'] ?? '') == '1') ? 'selected' : '' }}>Femenino</option>
+                                    <option value="2" {{ (old('sexo', $datosGuardados['sexo'] ?? '') == '2') ? 'selected' : '' }}>Masculino</option>
                                 </select>
                                 <div class="error-message hidden text-red-500 text-sm" id="sexo-error"></div>
                             </div>
@@ -208,6 +215,7 @@
                                 </label>
                                 <input type="text" name="localidad" id="localidad" required 
                                        placeholder="San Pedro Tlaquepaque"
+                                       value="{{ old('localidad', $datosGuardados['localidad'] ?? '') }}"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base">
                                 <div class="error-message hidden text-red-500 text-sm" id="localidad-error"></div>
                             </div>

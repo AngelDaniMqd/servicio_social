@@ -1,4 +1,3 @@
-
 @php
     $modalidades = DB::table('modalidad')->select('id','nombre')->get();
     $carreras = DB::table('carreras')->select('id','nombre')->get();
@@ -80,9 +79,9 @@
                                 </label>
                                 <div class="relative">
                                     <input type="text" name="matricula" id="matricula" required 
-                                           pattern="[0-9]{14}" maxlength="14" minlength="14" 
-                                           placeholder="12345678901234"
-                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base font-mono">
+                                           value="{{ old('matricula', $datosEscolaridadGuardados['numero_control'] ?? '') }}"
+                                           maxlength="14" pattern="[0-9]{14}"
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base">
                                     <div class="absolute inset-y-0 right-0 flex items-center pr-3">
                                         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>

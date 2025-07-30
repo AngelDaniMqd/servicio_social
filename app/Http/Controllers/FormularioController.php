@@ -22,7 +22,9 @@ class FormularioController extends Controller
     public function vistaDatosAlumno()
     {
         try {
-            return view('datosalumno');
+            // Recuperar datos guardados en sesión si existen
+            $datosGuardados = Session::get('datos_alumno', []);
+            return view('datosalumno', compact('datosGuardados'));
         } catch (\Throwable $e) {
             return redirect('/solicitud')->with('error', 'No se pudo cargar el formulario de datos del alumno. Intenta más tarde.');
         }
@@ -75,7 +77,9 @@ class FormularioController extends Controller
     public function vistaEscolaridad()
     {
         try {
-            return view('escolaridad');
+            // Recuperar datos guardados en sesión si existen
+            $datosEscolaridadGuardados = Session::get('datos_escolaridad', []);
+            return view('escolaridad', compact('datosEscolaridadGuardados'));
         } catch (\Throwable $e) {
             return redirect('/datos-alumno')->with('error', 'No se pudo cargar el formulario de escolaridad.');
         }
@@ -119,7 +123,9 @@ class FormularioController extends Controller
     public function vistaPrograma()
     {
         try {
-            return view('programa');
+            // Recuperar datos guardados en sesión si existen
+            $datosProgramaGuardados = Session::get('datos_programa', []);
+            return view('programa', compact('datosProgramaGuardados'));
         } catch (\Throwable $e) {
             return redirect('/escolaridad')->with('error', 'No se pudo cargar el formulario del programa.');
         }
@@ -156,9 +162,19 @@ class FormularioController extends Controller
                 'puesto_encargado' => 'required|string|max:100',
             ]);
 
+            // AGREGAR AQUÍ - ANTES del DB::transaction:
+            // Guardar datos de programa en sesión también
+            $datosPrograma = $request->only([
+                'instituciones_id', 'telefono_institucion', 'nombre_programa',
+                'tipos_programa_id', 'metodo_servicio_id', 'fecha_inicio',
+                'fecha_final', 'titulos_id', 'encargado_nombre', 'puesto_encargado',
+                'otra_institucion', 'otro_programa'
+            ]);
+            Session::put('datos_programa', $datosPrograma);
+
             $alumnoId = null;
 
-            DB::transaction(function () use ($request, $datosAlumno, $datosEscolaridad, &$alumnoId) {
+            return DB::transaction(function () use ($request, $datosAlumno, $datosEscolaridad, &$alumnoId) {
                 // 1. CREAR EL ALUMNO usando datos de la sesión
                 $alumnoId = DB::table('alumno')->insertGetId([
                     'correo_institucional' => $datosAlumno['correo_institucional'],

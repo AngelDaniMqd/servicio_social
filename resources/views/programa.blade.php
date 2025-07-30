@@ -79,7 +79,9 @@
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base">
                                 <option value="" disabled selected>Selecciona una institución</option>
                                 @foreach($instituciones as $inst)
-                                    <option value="{{ $inst->id }}">{{ $inst->nombre }}</option>
+                                    <option value="{{ $inst->id }}" {{ (old('instituciones_id', $datosProgramaGuardados['instituciones_id'] ?? '') == $inst->id) ? 'selected' : '' }}>
+                                        {{ $inst->nombre }}
+                                    </option>
                                 @endforeach
                                 <option value="otra">Otra institución</option>
                             </select>
@@ -93,7 +95,8 @@
                             </label>
                             <input type="text" name="otra_institucion" id="otra_institucion" 
                                    maxlength="100" placeholder="Nombre de la institución"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base">
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
+                                   value="{{ old('otra_institucion', $datosProgramaGuardados['otra_institucion'] ?? '') }}">
                             <div class="error-message hidden text-red-500 text-sm" id="otra_institucion-error"></div>
                         </div>
 
@@ -106,7 +109,8 @@
                                 <input type="tel" name="telefono_institucion" id="telefono_institucion" required 
                                        maxlength="10" minlength="10" pattern="[0-9]{10}" 
                                        placeholder="1234567890"
-                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base">
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
+                                       value="{{ old('telefono_institucion', $datosProgramaGuardados['telefono_institucion'] ?? '') }}">
                                 <div class="absolute inset-y-0 right-0 flex items-center pr-3">
                                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
@@ -136,7 +140,8 @@
                             </label>
                             <input type="text" name="nombre_programa" id="nombre_programa" required 
                                    maxlength="100" placeholder="Ej. Programa de Apoyo Comunitario"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base"
+                                   value="{{ old('nombre_programa', $datosProgramaGuardados['nombre_programa'] ?? '') }}">
                             <div class="error-message hidden text-red-500 text-sm" id="nombre_programa-error"></div>
                         </div>
 
@@ -181,7 +186,8 @@
                             </label>
                             <input type="text" name="otro_programa" id="otro_programa" 
                                    maxlength="100" placeholder="Nombre del tipo de programa"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base"
+                                   value="{{ old('otro_programa', $datosProgramaGuardados['otro_programa'] ?? '') }}">
                             <div class="error-message hidden text-red-500 text-sm" id="otro_programa-error"></div>
                         </div>
 
@@ -193,7 +199,8 @@
                                     Fecha de Inicio <span class="text-red-500">*</span>
                                 </label>
                                 <input type="date" name="fecha_inicio" id="fecha_inicio" required 
-                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base"
+                                       value="{{ old('fecha_inicio', $datosProgramaGuardados['fecha_inicio'] ?? '') }}">
                                 <div class="error-message hidden text-red-500 text-sm" id="fecha_inicio-error"></div>
                             </div>
 
@@ -203,7 +210,8 @@
                                     Fecha Final <span class="text-red-500">*</span>
                                 </label>
                                 <input type="date" name="fecha_final" id="fecha_final" required 
-                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base"
+                                       value="{{ old('fecha_final', $datosProgramaGuardados['fecha_final'] ?? '') }}">
                                 <div class="error-message hidden text-red-500 text-sm" id="fecha_final-error"></div>
                             </div>
                         </div>
@@ -244,7 +252,8 @@
                                 </label>
                                 <input type="text" name="encargado_nombre" id="encargado_nombre" required 
                                        maxlength="100" placeholder="Nombre completo del encargado"
-                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base">
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base"
+                                       value="{{ old('encargado_nombre', $datosProgramaGuardados['encargado_nombre'] ?? '') }}">
                                 <div class="error-message hidden text-red-500 text-sm" id="encargado_nombre-error"></div>
                             </div>
                         </div>
@@ -256,7 +265,8 @@
                             </label>
                             <input type="text" name="puesto_encargado" id="puesto_encargado" required 
                                    maxlength="100" placeholder="Ej. Director, Coordinador, Supervisor"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base">
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base"
+                                   value="{{ old('puesto_encargado', $datosProgramaGuardados['puesto_encargado'] ?? '') }}">
                             <div class="error-message hidden text-red-500 text-sm" id="puesto_encargado-error"></div>
                         </div>
                     </div>
