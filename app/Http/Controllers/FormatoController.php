@@ -476,4 +476,20 @@ class FormatoController extends Controller
                 ->with('error', 'Error al guardar la información: ' . $e->getMessage());
         }
     }
+
+    public function index()
+    {
+        return view('formatos-upload');
+    }
+
+    public function store(Request $request)
+    {
+        // Lógica para guardar formatos
+        try {
+            // Tu lógica aquí
+            return redirect()->route('formatos.upload')->with('success', 'Formato subido correctamente');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al subir formato: ' . $e->getMessage());
+        }
+    }
 }

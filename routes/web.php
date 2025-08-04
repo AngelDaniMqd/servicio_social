@@ -12,215 +12,229 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AlumnosController;
 use App\Http\Controllers\AlumnoPublicoController; // ← AGREGAR ESTA LÍNEA
 
-// ==================== RUTAS PÚBLICAS (sin autenticación) ====================
-Route::get('/', function () {
-    return view('solicitud');
-})->name('solicitud');
+// ==================== RUTAS PÚBLICAS CON RATE LIMITING ====================
+Route::middleware(['throttle:10,1'])->group(function () {
+    Route::get('/', function () {
+        return view('solicitud');
+    })->name('solicitud');
 
+    Route::get('/solicitud', function () {
+        return view('solicitud');
+    });
 
-// Rutas del formulario público de registro
-Route::get('/solicitud', function () {
-    return view('solicitud');
-});
+    // Vistas del formulario público
+    Route::get('/datos-alumno', [FormularioController::class, 'vistaDatosAlumno']);
+    Route::get('/escolaridad', [FormularioController::class, 'vistaEscolaridad']);
+    Route::get('/programa', [FormularioController::class, 'vistaPrograma']);
 
-Route::get('/datos-alumno', [FormularioController::class, 'vistaDatosAlumno']);
-Route::post('/guardar-datos-alumno', [FormularioController::class, 'guardarDatosAlumno']);
-
-Route::get('/escolaridad', [FormularioController::class, 'vistaEscolaridad']);
-Route::post('/guardar-escolaridad', [FormularioController::class, 'guardarEscolaridad']);
-
-Route::get('/programa', [FormularioController::class, 'vistaPrograma']);
-Route::post('/guardar-programa', [FormularioController::class, 'guardarPrograma']);
-
-// Rutas de procesamiento del formulario
-Route::post('/enviar-registro', [FormularioController::class, 'guardarTodo'])->name('enviar.registro');
-Route::post('/final-registro', [FormularioController::class, 'guardarTodo'])->name('finalizar.registro');
-Route::post('/completar-registro', [FormularioController::class, 'guardarTodo'])->name('completar.registro');
-Route::post('/procesar-registro', [FormularioController::class, 'guardarTodo'])->name('procesar.registro');
-
-// Vistas de resultado
-Route::get('/final', function(){
-    // Verificar si hay datos de registro exitoso en sesión
-    if (!Session::get('registro_exitoso')) {
-        return redirect('/datos-alumno')->with('error', 'Complete el formulario primero.');
-    }
-    
-    $alumnoId = Session::get('alumno_id');
-    $alumnoNombre = Session::get('alumno_nombre');
-    
-    return view('final', compact('alumnoId', 'alumnoNombre'));
-})->name('final');
-
-Route::get('/registro-exitoso', function(){
-    return view('registro-exitoso', [
-        'alumnoId' => session('alumno_id', 'DEMO'),
-        'alumnoNombre' => session('alumno_nombre', 'Usuario Demo'),
-        'numeroControl' => session('numero_control', '12345678'),
-        'programaNombre' => session('programa_nombre', 'Programa Demo')
-    ]);
-})->name('registro.exitoso');
-
-// AGREGAR ESTA NUEVA RUTA CON URL DIFERENTE:
-Route::post('/completar-registro', [FormularioController::class, 'guardarTodo'])->name('completar.registro');
-
-// Rutas para descargar documentos (PÚBLICAS para el registro)
-Route::get('/export/solicitud/{alumnoId}', [FormatoController::class, 'exportSolicitud'])->name('export.solicitud');
-Route::get('/export/escolaridad/{alumnoId}', [FormatoController::class, 'exportEscolaridad'])->name('export.escolaridad');
-Route::get('/export/programa/{alumnoId}', [FormatoController::class, 'exportPrograma'])->name('export.programa');
-Route::get('/export/final/{alumnoId}', [FormatoController::class, 'exportReporteFinal'])->name('export.final');
-
-// ELIMINAR esta línea:
-// Route::get('/finalizar-formulario', function () {
-//     if (Session::get('registro_exitoso')) {
-//         return redirect('/final');
-//     }
-//     return redirect('/datos-alumno')->with('error', 'Complete el formulario primero.');
-// });
-
-// Rutas de autenticación
-Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->name('admin.auth');
-
-// Ruta para municipios (puede ser pública)
-Route::get('/municipios-por-estado/{estado}', function($estado) {
-    return DB::table('municipios')->where('estado_id', $estado)->select('id','nombre')->get();
-});
-
-Route::get('/municipios-por-estado/{estadoId}', function($estadoId) {
-    $municipios = DB::table('municipios')
-        ->where('estado_id', $estadoId)
-        ->orderBy('nombre')
-        ->get(['id', 'nombre']);
-    
-    return response()->json($municipios);
-});
-
-// API para municipios
-Route::get('/api/municipios-por-estado/{estadoId}', function($estadoId) {
-    try {
-        \Log::info('Solicitando municipios para estado ID: ' . $estadoId);
+    // Vista final
+    Route::get('/final', function(){
+        if (!Session::get('registro_exitoso')) {
+            return redirect('/datos-alumno')->with('error', 'Complete el formulario primero.');
+        }
         
-        $municipios = DB::table('municipios')
-            ->where('estado_id', $estadoId)
-            ->orderBy('nombre')
-            ->select('id', 'nombre')
-            ->get();
+        $alumnoId = Session::get('alumno_id');
+        $alumnoNombre = Session::get('alumno_nombre');
         
-        \Log::info('Municipios encontrados: ' . $municipios->count());
-        
-        return response()->json($municipios);
-    } catch (\Exception $e) {
-        \Log::error('Error al obtener municipios por estado:', [
-            'estado_id' => $estadoId,
-            'error' => $e->getMessage()
+        return view('final', compact('alumnoId', 'alumnoNombre'));
+    })->name('final');
+
+    // Vista de registro exitoso
+    Route::get('/registro-exitoso', function(){
+        return view('registro-exitoso', [
+            'alumnoId' => session('alumno_id', 'DEMO'),
+            'alumnoNombre' => session('alumno_nombre', 'Usuario Demo'),
+            'numeroControl' => session('numero_control', '12345678'),
+            'programaNombre' => session('programa_nombre', 'Programa Demo')
         ]);
-        
-        return response()->json([], 500);
-    }
+    })->name('registro.exitoso');
+
+    // Rutas para edición pública de alumnos
+    Route::get('/alumno/{id}/edit', [FormularioController::class, 'editarAlumnoPublico'])
+        ->where('id', '^[0-9]+$')
+        ->name('alumno.edit');
+    Route::put('/alumno/{id}/actualizar', [FormularioController::class, 'actualizarAlumnoPublico'])
+        ->where('id', '^[0-9]+$')
+        ->name('alumno.actualizar');
+    Route::get('/actualizacion-exitosa', function() {
+        return view('actualizacion-exitosa');
+    })->name('actualizacion.exitosa');
 });
 
-// ==================== RUTAS PROTEGIDAS (requieren autenticación) ====================
-Route::prefix('admin')->group(function () {
+// Formulario público con protección estricta
+Route::middleware(['throttle:5,1'])->group(function () {
+    Route::post('/guardar-datos-alumno', [FormularioController::class, 'guardarDatosAlumno']);
+    Route::post('/guardar-escolaridad', [FormularioController::class, 'guardarEscolaridad']);
+    Route::post('/guardar-programa', [FormularioController::class, 'guardarPrograma']);
+    Route::post('/enviar-registro', [FormularioController::class, 'guardarTodo'])->name('enviar.registro');
+    Route::post('/final-registro', [FormularioController::class, 'guardarTodo'])->name('finalizar.registro');
+    Route::post('/completar-registro', [FormularioController::class, 'guardarTodo'])->name('completar.registro');
+    Route::post('/procesar-registro', [FormularioController::class, 'guardarTodo'])->name('procesar.registro');
+    Route::post('/buscar-registro', [FormularioController::class, 'buscarRegistro'])->name('buscar.registro');
+});
+
+// API endpoints con validación estricta
+Route::middleware(['throttle:30,1'])->group(function () {
+    Route::get('/api/municipios-por-estado/{estadoId}', function($estadoId) {
+        if (!ctype_digit($estadoId)) {
+            return response()->json(['error' => 'Formato inválido'], 400);
+        }
+        
+        $estadoId = (int) $estadoId;
+        if ($estadoId < 1 || $estadoId > 32) {
+            return response()->json(['error' => 'Estado fuera de rango'], 400);
+        }
+        
+        try {
+            $municipios = DB::table('municipios')
+                ->where('estado_id', '=', $estadoId)
+                ->orderBy('nombre', 'asc')
+                ->select(['id', 'nombre'])
+                ->get();
+            
+            return response()->json($municipios);
+        } catch (\Exception $e) {
+            \Log::error('Error API municipios:', [
+                'estado_id' => $estadoId,
+                'error' => $e->getMessage(),
+                'ip' => request()->ip()
+            ]);
+            
+            return response()->json(['error' => 'Error interno'], 500);
+        }
+    })->where('estadoId', '^[1-9][0-9]*$');
+});
+
+// ==================== DOCUMENTOS PÚBLICOS CON VALIDACIÓN DE SESIÓN ====================
+Route::middleware(['throttle:10,1'])->group(function () {
+    Route::get('/export/solicitud/{alumnoId}', function($alumnoId) {
+        if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
+            abort(403, 'No autorizado para descargar este documento');
+        }
+        return app(FormatoController::class)->exportSolicitud($alumnoId);
+    })->where('alumnoId', '^[0-9]+$')->name('export.solicitud');
     
-    // Logout
+    Route::get('/export/escolaridad/{alumnoId}', function($alumnoId) {
+        if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
+            abort(403, 'No autorizado para descargar este documento');
+        }
+        return app(FormatoController::class)->exportEscolaridad($alumnoId);
+    })->where('alumnoId', '^[0-9]+$')->name('export.escolaridad');
+    
+    Route::get('/export/programa/{alumnoId}', function($alumnoId) {
+        if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
+            abort(403, 'No autorizado para descargar este documento');
+        }
+        return app(FormatoController::class)->exportPrograma($alumnoId);
+    })->where('alumnoId', '^[0-9]+$')->name('export.programa');
+    
+    Route::get('/export/final/{alumnoId}', function($alumnoId) {
+        if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
+            abort(403, 'No autorizado para descargar este documento');
+        }
+        return app(FormatoController::class)->exportReporteFinal($alumnoId);
+    })->where('alumnoId', '^[0-9]+$')->name('export.final');
+});
+
+// ==================== AUTENTICACIÓN CON RATE LIMITING RELAJADO ====================
+
+// 🔧 Login form - SIN rate limiting restrictivo
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+
+// 🔧 Login attempts - Rate limiting más permisivo
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware('throttle:20,1')  // 20 intentos por minuto en lugar de 5
+    ->name('admin.auth');
+
+// Redirigir /admin a login
+Route::get('/admin', function () {
+    return redirect()->route('login');
+});
+
+// ==================== RUTAS ADMIN TOTALMENTE PROTEGIDAS ====================
+Route::middleware(['admin'])->prefix('admin')->group(function () {
+    
+    // 🔧 Logout SIN rate limiting
     Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout.post');
     
-    // Dashboard y administración
-    Route::get('/dashboard', [DatabaseOverviewController::class, 'index'])->name('dashboard');
-    Route::get('/database-overview', [DatabaseOverviewController::class, 'index'])->name('database.overview');
-    Route::get('/alumnos-recientes', [AlumnosDescargaController::class, 'index'])->name('alumnos.recientes');
-    Route::get('/alumnos-descargar', [AlumnosDescargaController::class, 'index'])->name('alumnos.descargar');
-    
-    // Gestión de registros - CORREGIR ESTAS RUTAS
-    Route::get('/record/edit/{table}/{id}', [DatabaseOverviewController::class, 'edit'])->name('record.edit');
-    Route::put('/record/update/{table}/{id}', [DatabaseOverviewController::class, 'updateRecord'])->name('record.update');
-    
-    // ⚠️ AGREGAR ESTA RUTA SI NO EXISTE:
-    Route::delete('/record/delete/{table}/{id}', [DatabaseOverviewController::class, 'delete'])->name('record.delete');
-    
-    Route::get('/record/create/{table}', [DatabaseOverviewController::class, 'create'])->name('record.create');
-    Route::post('/record/store/{table}', [DatabaseOverviewController::class, 'store'])->name('record.store');
-    
-    // Autocompletado
-    Route::get('/autocomplete/{table}/{column}', [DatabaseOverviewController::class, 'autocomplete'])->name('autocomplete');
-    
-    // Descargas y formatos
-    Route::get('/descargar-formato/{id}', [FormatoController::class, 'downloadEditedWord'])->name('formatos.download');
-    Route::get('/alumnos-descargar', [AlumnosDescargaController::class, 'index'])->name('alumnos.descargar');
-    Route::get('/descargar-formato/{id}/{tipo}', [FormatoController::class, 'downloadEditedWord'])->name('formatos.download');
-    
-    // Subida de formatos
-    Route::get('/subir-formatos/{id}', [FormatoController::class, 'mostrarFormularioSubida'])->name('formatos.upload');
-    Route::post('/subir-formatos/{id}', [FormatoController::class, 'procesarSubidaFormatos'])->name('formatos.upload.post');
-    
-    // Exportación
-    Route::get('/export/excel', [App\Http\Controllers\ExportController::class, 'exportExcel'])->name('export.excel');
-    Route::get('/export/pdf', [App\Http\Controllers\ExportController::class, 'exportPdf'])->name('export.pdf');
-    
-    // Autocompletado
-    Route::get('/autocomplete/{table}/{column}', [DatabaseOverviewController::class, 'autocomplete'])->name('autocomplete');
-    
-    // Rutas para gestión de registros (RecordController)
-    Route::get('/record/create/{table}', [RecordController::class, 'create'])->name('record.create');
-    Route::post('/record/store/{table}', [RecordController::class, 'store'])->name('record.store');
-    Route::get('/record/edit/{table}/{id}', [RecordController::class, 'edit'])->name('record.edit');
-    Route::put('/record/update/{table}/{id}', [RecordController::class, 'update'])->name('record.update');
-    Route::delete('/record/delete/{table}/{id}', [RecordController::class, 'destroy'])->name('record.delete');
-    
+    // 🔧 Rutas admin con rate limiting MUY permisivo
+    Route::middleware(['throttle:500,1'])->group(function () {
+        
+        // Dashboard y administración
+        Route::get('/dashboard', [DatabaseOverviewController::class, 'index'])->name('dashboard');
+        Route::get('/database-overview', [DatabaseOverviewController::class, 'index'])->name('database.overview');
+        
+        // Alumnos
+        Route::get('/alumnos-recientes', [AlumnosDescargaController::class, 'index'])->name('alumnos.recientes');
+        Route::get('/alumnos-descargar', [AlumnosDescargaController::class, 'index'])->name('alumnos.descargar');
+        
+        // Gestión de registros
+        Route::get('/record/edit/{table}/{id}', [DatabaseOverviewController::class, 'edit'])
+            ->where(['table' => '^[a-zA-Z_]+$', 'id' => '^[0-9]+$'])
+            ->name('record.edit');
+        Route::put('/record/update/{table}/{id}', [DatabaseOverviewController::class, 'updateRecord'])
+            ->where(['table' => '^[a-zA-Z_]+$', 'id' => '^[0-9]+$'])
+            ->name('record.update');
+        Route::delete('/record/delete/{table}/{id}', [DatabaseOverviewController::class, 'delete'])
+            ->where(['table' => '^[a-zA-Z_]+$', 'id' => '^[0-9]+$'])
+            ->name('record.delete');
+        Route::get('/record/create/{table}', [DatabaseOverviewController::class, 'create'])
+            ->where('table', '^[a-zA-Z_]+$')
+            ->name('record.create');
+        Route::post('/record/store/{table}', [DatabaseOverviewController::class, 'store'])
+            ->where('table', '^[a-zA-Z_]+$')
+            ->name('record.store');
+        
+        // Autocompletado
+        Route::get('/autocomplete/{table}/{column}', [DatabaseOverviewController::class, 'autocomplete'])
+            ->where(['table' => '^[a-zA-Z_]+$', 'column' => '^[a-zA-Z_]+$'])
+            ->name('autocomplete');
+        
         // Formatos
         Route::get('/formatos/upload', [App\Http\Controllers\FormatosController::class, 'index'])->name('formatos.upload');
-        Route::post('/formatos/upload', [App\Http\Controllers\FormatosController::class, 'store'])->name('formatos.upload.store'); // AGREGAR ESTA LÍNEA
-        Route::put('/alumno/cancelar/{id}', [DatabaseOverviewController::class, 'cancelarAlumno'])->name('alumno.cancelar');
-        Route::put('/record/{table}/{id}', [DatabaseOverviewController::class, 'update'])->name('record.update');
+        Route::post('/formatos/upload', [App\Http\Controllers\FormatosController::class, 'store'])->name('formatos.upload.store');
+        
+        // Subida de formatos por alumno
+        Route::get('/subir-formatos/{id}', [FormatoController::class, 'mostrarFormularioSubida'])
+            ->where('id', '^[0-9]+$')
+            ->name('formatos.upload.form');
+        Route::post('/subir-formatos/{id}', [FormatoController::class, 'procesarSubidaFormatos'])
+            ->where('id', '^[0-9]+$')
+            ->name('formatos.upload.post');
+        
+        // Descargas de formatos
+        Route::get('/descargar-formato/{id}', [FormatoController::class, 'downloadEditedWord'])
+            ->where('id', '^[0-9]+$')
+            ->name('formatos.download');
+        Route::get('/descargar-formato/{id}/{tipo}', [FormatoController::class, 'downloadEditedWord'])
+            ->where(['id' => '^[0-9]+$', 'tipo' => '^[a-zA-Z_]+$'])
+            ->name('formatos.download.tipo');
+        
+        // Exportación
+        Route::get('/export/excel', [App\Http\Controllers\ExportController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf', [App\Http\Controllers\ExportController::class, 'exportPdf'])->name('export.pdf');
         
         // Alumnos específicos
-        Route::put('/alumno/update/{id}', [DatabaseOverviewController::class, 'updateAlumno'])->name('alumno.update');
+        Route::put('/alumno/cancelar/{id}', [DatabaseOverviewController::class, 'cancelarAlumno'])
+            ->where('id', '^[0-9]+$')
+            ->name('alumno.cancelar');
+        Route::put('/alumno/update/{id}', [DatabaseOverviewController::class, 'updateAlumno'])
+            ->where('id', '^[0-9]+$')
+            ->name('alumno.update');
         
-        // Rutas de exportación de documentos
-        Route::get('/export/solicitud/{alumnoId}', [FormatoController::class, 'exportSolicitud'])->name('export.solicitud.admin');
-        Route::get('/export/escolaridad/{alumnoId}', [FormatoController::class, 'exportEscolaridad'])->name('export.escolaridad.admin');
-        Route::get('/export/programa/{alumnoId}', [FormatoController::class, 'exportPrograma'])->name('export.programa.admin');
-        Route::get('/export/final/{alumnoId}', [FormatoController::class, 'exportReporteFinal'])->name('export.final.admin');
+        // Rutas de exportación de documentos admin
+        Route::get('/export/solicitud/{alumnoId}', [FormatoController::class, 'exportSolicitud'])
+            ->where('alumnoId', '^[0-9]+$')
+            ->name('export.solicitud.admin');
+        Route::get('/export/escolaridad/{alumnoId}', [FormatoController::class, 'exportEscolaridad'])
+            ->where('alumnoId', '^[0-9]+$')
+            ->name('export.escolaridad.admin');
+        Route::get('/export/programa/{alumnoId}', [FormatoController::class, 'exportPrograma'])
+            ->where('alumnoId', '^[0-9]+$')
+            ->name('export.programa.admin');
+        Route::get('/export/final/{alumnoId}', [FormatoController::class, 'exportReporteFinal'])
+            ->where('alumnoId', '^[0-9]+$')
+            ->name('export.final.admin');
     });
-
-// RUTA QUE PROCESA Y MUESTRA RESULTADO:
-// REEMPLAZAR ESTA RUTA PROBLEMÁTICA:
-/*
-Route::post('/procesar-registro', function(Request $request) {
-    try {
-        // Llamar al método guardarTodo del controlador
-        $controller = new \App\Http\Controllers\FormularioController();
-        $resultado = $controller->guardarTodo($request);
-        
-        // Si el resultado es una vista, retornarla
-        if ($resultado instanceof \Illuminate\View\View) {
-            return $resultado;
-        }
-        
-        // Si es una redirección, seguirla
-        return $resultado;
-        
-    } catch (\Exception $e) {
-        return view('registro-exitoso', [
-            'alumnoId' => 'ERROR',
-            'alumnoNombre' => 'Error en el procesamiento',
-            'numeroControl' => 'N/A',
-            'programaNombre' => 'Error: ' . $e->getMessage()
-        ]);
-    }
 });
-*/
-
-// POR ESTA RUTA CORREGIDA:
-Route::post('/procesar-registro', [FormularioController::class, 'guardarTodo'])->name('procesar.registro');
-
-// Ruta para buscar registro existente
-Route::post('/buscar-registro', [FormularioController::class, 'buscarRegistro'])->name('buscar.registro');
-
-// Rutas para edición pública de alumnos - USAR NUEVO CONTROLADOR
-Route::get('/alumno/{id}/edit', [FormularioController::class, 'editarAlumnoPublico'])->name('alumno.edit');
-Route::put('/alumno/{id}/actualizar', [FormularioController::class, 'actualizarAlumnoPublico'])->name('alumno.actualizar');
-Route::get('/actualizacion-exitosa', function() {
-    return view('actualizacion-exitosa');
-})->name('actualizacion.exitosa');

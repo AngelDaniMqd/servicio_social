@@ -252,9 +252,9 @@
                         </div>
 
                         <!-- Usuario logueado -->
-                        @if(session('usuario_id'))
+                        @if(session('admin_id'))
                             @php
-                                $usuario = DB::table('usuario')->where('id', session('usuario_id'))->first();
+                                $usuario = DB::table('usuario')->where('id', session('admin_id'))->first();
                             @endphp
                             @if($usuario)
                                 <div class="flex items-center space-x-3 bg-blue-50 px-3 py-2 rounded-lg">

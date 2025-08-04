@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use App\Models\Usuario;
 use App\Models\Rol; // Asegúrate de tener este modelo
 
@@ -51,35 +54,78 @@ class AuthController extends Controller
     // Procesar login
     public function login(Request $request)
     {
-        $request->validate([
-            'correo' => 'required|email',
-            'password' => 'required'
-        ]);
-
-        $usuario = Usuario::where('correo', $request->correo)->first();
-
-        if (!$usuario || !Hash::check($request->password, $usuario->password)) {
+        // Rate limiting por IP
+        $key = 'login-attempts.' . $request->ip();
+        
+        if (RateLimiter::tooManyAttempts($key, 20)) {
+            $seconds = RateLimiter::availableIn($key);
             return back()->withErrors([
-                'correo' => 'Las credenciales son incorrectas.'
+                'correo' => "Demasiados intentos de login. Intente nuevamente en {$seconds} segundos.",
             ]);
         }
 
-        // AGREGAR ESTAS LÍNEAS para establecer la sesión:
-        session(['admin_authenticated' => true]);
-        session(['admin_user' => $usuario]);
-        session(['usuario_id' => $usuario->id]);
+        $credentials = $request->validate([
+            'correo' => 'required|email|max:255',
+            'password' => 'required|string|min:6|max:255',
+        ]);
 
-        return redirect()->route('dashboard')->with('success', 'Bienvenido al panel de administración');
+        // Buscar usuario
+        $user = DB::table('usuario')
+            ->where('correo', $credentials['correo'])
+            ->where('rol_id', 2) // Solo administradores
+            ->first();
+
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+            RateLimiter::hit($key, 300);
+            return back()->withErrors(['correo' => 'Credenciales inválidas.']);
+        }
+
+        // Limpiar rate limiting exitoso
+        RateLimiter::clear($key);
+
+        // Crear sesión segura
+        $request->session()->regenerate();
+        
+        // Guardar datos en sesión
+        session([
+            'admin_id' => $user->id,
+            'admin_name' => $user->nombre,
+            'admin_email' => $user->correo,
+            'admin_logged_in' => true,
+            'admin_login_time' => now(),
+            'admin_role' => 'Administrador', // Para mostrar en la vista
+        ]);
+
+        // Log para verificar que la sesión se creó
+        \Log::info('Login exitoso - Sesión creada', [
+            'user_id' => $user->id,
+            'user_name' => $user->nombre,
+            'session_data' => [
+                'admin_id' => session('admin_id'),
+                'admin_name' => session('admin_name'),
+                'admin_logged_in' => session('admin_logged_in'),
+            ]
+        ]);
+
+        return redirect()->intended(route('dashboard'))
+            ->with('success', 'Bienvenido, ' . $user->nombre);
     }
 
     // Cerrar sesión
     public function logout(Request $request)
     {
-        // Limpiar todas las sesiones de autenticación
-        session()->forget(['admin_authenticated', 'admin_user', 'usuario_id']);
-        session()->invalidate();
-        session()->regenerateToken();
+        // Log de logout
+        \Log::info('Admin logout', [
+            'user_id' => session('admin_id'),
+            'user_name' => session('admin_name'),
+            'ip' => $request->ip(),
+        ]);
+
+        // Limpiar sesión completamente
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
         
-        return redirect()->route('login')->with('success', 'Sesión cerrada correctamente');
+        return redirect()->route('login')
+            ->with('success', 'Sesión cerrada correctamente');
     }
 }

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -85,7 +84,7 @@
             @endif
 
             <!-- Login Form -->
-            <form method="POST" action="{{ route('admin.auth') }}" id="loginForm" class="space-y-6">
+            <form method="POST" action="{{ route('login') }}" id="loginForm" class="space-y-6">
                 @csrf
                 
                 <!-- Email Field -->
@@ -144,22 +143,7 @@
                 </div>
 
                 <!-- Remember Me -->
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <input 
-                            id="remember" 
-                            name="remember" 
-                            type="checkbox" 
-                            class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        >
-                        <label for="remember" class="ml-2 text-sm text-gray-600">
-                            Recordarme
-                        </label>
-                    </div>
-                    <a href="#" class="text-sm text-blue-600 hover:text-blue-500 transition-colors">
-                        ¿Olvidaste tu contraseña?
-                    </a>
-                </div>
+               
 
                 <!-- Submit Button -->
                 <button 
