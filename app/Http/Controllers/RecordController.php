@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 
 class RecordController extends Controller
@@ -248,14 +249,191 @@ class RecordController extends Controller
 
     public function destroy($table, $id)
     {
+        // LOGS SIMPLES SIN EMOJIS
+        \Log::info('=== DESTROY RECORDCONTROLLER EJECUTADO ===');
+        \Log::info('Tabla: ' . $table);
+        \Log::info('ID: ' . $id);
+        \Log::info('URL: ' . request()->fullUrl());
+        
         try {
-            DB::table($table)->where('id', $id)->delete();
+            // ==================== VALIDACIÓN DE TABLA ====================
+            $allowedTables = [
+                'instituciones', 'tipos_programa', 'metodo_servicio', 
+                'titulos', 'carreras', 'modalidad', 'semestres', 
+                'grupos', 'edad', 'sexo', 'municipios', 'estados'
+            ];
+            
+            \Log::info('📋 Tablas permitidas: ' . implode(', ', $allowedTables));
+            
+            if (!in_array($table, $allowedTables)) {
+                \Log::error('❌ TABLA NO PERMITIDA: ' . $table);
+                return redirect()->route('dashboard', ['table' => $table])
+                    ->with('error', 'Tabla no permitida para eliminación: ' . $table);
+            }
 
+            \Log::info('✅ Tabla validada correctamente');
+
+            // ==================== VERIFICAR QUE EL REGISTRO EXISTE ====================
+            \Log::info('🔍 Verificando existencia del registro...');
+            
+            $record = DB::table($table)->where('id', $id)->first();
+            
+            if (!$record) {
+                \Log::error('❌ REGISTRO NO ENCONTRADO');
+                \Log::error('📊 Query ejecutada: SELECT * FROM ' . $table . ' WHERE id = ' . $id);
+                
+                // Verificar cuántos registros hay en la tabla
+                $totalRecords = DB::table($table)->count();
+                \Log::info('📈 Total de registros en ' . $table . ': ' . $totalRecords);
+                
+                // Mostrar IDs disponibles para debug
+                $availableIds = DB::table($table)->pluck('id')->take(10);
+                \Log::info('🆔 IDs disponibles (primeros 10): ' . $availableIds->implode(', '));
+                
+                return redirect()->route('dashboard', ['table' => $table])
+                    ->with('error', "El registro ID {$id} no existe en la tabla {$table}");
+            }
+
+            \Log::info('✅ Registro encontrado:', (array)$record);
+
+            // ==================== VERIFICAR DEPENDENCIAS ====================
+            \Log::info('🔍 Verificando dependencias...');
+            
+            $dependencias = $this->checkDependenciesDetailed($table, $id);
+            
+            if ($dependencias['count'] > 0) {
+                \Log::warning('⚠️ ELIMINACIÓN BLOQUEADA POR DEPENDENCIAS');
+                \Log::warning('📊 Detalles: ', $dependencias);
+                
+                return redirect()->route('dashboard', ['table' => $table])
+                    ->with('error', "No se puede eliminar porque tiene {$dependencias['count']} registro(s) relacionado(s) en {$dependencias['tables']}");
+            }
+
+            \Log::info('✅ Sin dependencias, procediendo a eliminar...');
+            
+            // ==================== ELIMINACIÓN CON TRANSACCIÓN ====================
+            return DB::transaction(function() use ($table, $id, $record) {
+                \Log::info('🗑️ Iniciando transacción de eliminación...');
+                \Log::info('🎯 Query que se ejecutará: DELETE FROM ' . $table . ' WHERE id = ' . $id);
+                
+                $deleted = DB::table($table)->where('id', $id)->delete();
+                
+                \Log::info('📊 Resultado de eliminación:');
+                \Log::info('   - Filas afectadas: ' . $deleted);
+                \Log::info('   - Registro eliminado: ' . json_encode($record));
+                
+                if ($deleted > 0) {
+                    \Log::info('🎉 ELIMINACIÓN EXITOSA');
+                    
+                    // Verificar que realmente se eliminó
+                    $verificacion = DB::table($table)->where('id', $id)->first();
+                    if ($verificacion) {
+                        \Log::error('❌ ERROR: El registro AÚN EXISTE después de DELETE');
+                        throw new \Exception('El registro no se eliminó correctamente');
+                    } else {
+                        \Log::info('✅ Verificación: Registro efectivamente eliminado');
+                    }
+                    
+                    return redirect()->route('dashboard', ['table' => $table])
+                        ->with('success', "Registro eliminado exitosamente de {$table}");
+                } else {
+                    \Log::error('❌ NO SE ELIMINÓ NINGUNA FILA');
+                    \Log::error('🤔 Posibles causas:');
+                    \Log::error('   - El ID no existe (aunque verificamos que sí)');
+                    \Log::error('   - Problemas de permisos en la base de datos');
+                    \Log::error('   - Restricciones de foreign key no detectadas');
+                    
+                    return redirect()->route('dashboard', ['table' => $table])
+                        ->with('error', 'No se pudo eliminar el registro - 0 filas afectadas');
+                }
+            });
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Log::error('💥 ERROR DE BASE DE DATOS:', [
+                'message' => $e->getMessage(),
+                'sql' => $e->getSql(),
+                'bindings' => $e->getBindings(),
+                'errorInfo' => $e->errorInfo,
+                'code' => $e->getCode()
+            ]);
+            
             return redirect()->route('dashboard', ['table' => $table])
-                           ->with('success', 'Registro eliminado exitosamente');
+                ->with('error', 'Error de base de datos: ' . $e->getMessage());
+            
         } catch (\Exception $e) {
-            Log::error('Error deleting record: ' . $e->getMessage());
-            return back()->with('error', 'Error al eliminar el registro: ' . $e->getMessage());
+            \Log::error('💥 ERROR GENERAL:', [
+                'table' => $table,
+                'id' => $id,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('dashboard', ['table' => $table])
+                ->with('error', 'Error inesperado: ' . $e->getMessage());
         }
+    }
+
+    // ==================== MÉTODO PARA VERIFICAR DEPENDENCIAS DETALLADAMENTE ====================
+    private function checkDependenciesDetailed($table, $id)
+    {
+        $result = [
+            'count' => 0,
+            'tables' => '',
+            'details' => []
+        ];
+        
+        try {
+            \Log::info("🔍 Verificando dependencias para {$table} ID {$id}");
+            
+            $dependencies = [];
+            
+            switch($table) {
+                case 'instituciones':
+                    $count = DB::table('programa_servicio_social')->where('instituciones_id', $id)->count();
+                    if ($count > 0) {
+                        $dependencies[] = "programa_servicio_social ({$count})";
+                        $result['details']['programa_servicio_social'] = $count;
+                    }
+                    break;
+                    
+                case 'tipos_programa':
+                    $count = DB::table('programa_servicio_social')->where('tipos_programa_id', $id)->count();
+                    if ($count > 0) {
+                        $dependencies[] = "programa_servicio_social ({$count})";
+                        $result['details']['programa_servicio_social'] = $count;
+                    }
+                    break;
+                    
+                case 'carreras':
+                    $count = DB::table('escolaridad_alumno')->where('carreras_id', $id)->count();
+                    if ($count > 0) {
+                        $dependencies[] = "escolaridad_alumno ({$count})";
+                        $result['details']['escolaridad_alumno'] = $count;
+                    }
+                    break;
+                    
+                case 'modalidad':
+                    $count = DB::table('escolaridad_alumno')->where('modalidad_id', $id)->count();
+                    if ($count > 0) {
+                        $dependencies[] = "escolaridad_alumno ({$count})";
+                        $result['details']['escolaridad_alumno'] = $count;
+                    }
+                    break;
+                    
+                // Agregar más casos según necesites...
+            }
+            
+            $result['count'] = array_sum($result['details']);
+            $result['tables'] = implode(', ', $dependencies);
+            
+            \Log::info("📊 Dependencias encontradas: " . json_encode($result));
+            
+        } catch (\Exception $e) {
+            \Log::error('❌ Error verificando dependencias: ' . $e->getMessage());
+        }
+        
+        return $result;
     }
 }

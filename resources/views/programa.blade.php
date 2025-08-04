@@ -1,10 +1,3 @@
-@php
-    $instituciones = DB::table('instituciones')->select('id','nombre')->get();
-    $titulos = DB::table('titulos')->select('id','titulo')->get();
-    $metodos = DB::table('metodo_servicio')->select('id','metodo')->get();
-    $tipos = DB::table('tipos_programa')->select('id','tipo')->get();
-    $status = DB::table('status')->select('id','tipo')->get();
-@endphp
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -53,9 +46,29 @@
             </div>
         @endif
 
+        <!-- Formulario oculto para guardar datos al retroceder -->
+        <form id="formAtras" action="{{ url('/guardar-programa') }}" method="POST" style="display: none;">
+            @csrf
+            <input type="hidden" name="instituciones_id" id="hidden_instituciones_id">
+            <input type="hidden" name="telefono_institucion" id="hidden_telefono_institucion">
+            <input type="hidden" name="nombre_programa" id="hidden_nombre_programa">
+            <input type="hidden" name="tipos_programa_id" id="hidden_tipos_programa_id">
+            <input type="hidden" name="metodo_servicio_id" id="hidden_metodo_servicio_id">
+            <input type="hidden" name="fecha_inicio" id="hidden_fecha_inicio">
+            <input type="hidden" name="fecha_final" id="hidden_fecha_final">
+            <input type="hidden" name="titulos_id" id="hidden_titulos_id">
+            <input type="hidden" name="encargado_nombre" id="hidden_encargado_nombre">
+            <input type="hidden" name="puesto_encargado" id="hidden_puesto_encargado">
+            <input type="hidden" name="otra_institucion" id="hidden_otra_institucion">
+            <input type="hidden" name="otro_programa" id="hidden_otro_programa">
+        </form>
+
         <!-- Main Form Card -->
         <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <form id="formPrograma" action="{{ url('/finalizar-formulario') }}" method="POST" novalidate>
+            <form id="formPrograma"
+                  action="/procesar-registro"
+                  method="POST"
+                  class="space-y-8">
                 @csrf
                 
                 <div class="p-6 sm:p-8 space-y-8">
@@ -154,11 +167,13 @@
                                 </label>
                                 <select name="tipos_programa_id" id="tipos_programa_id" required 
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona un tipo</option>
+                                    <option value="" disabled {{ !old('tipos_programa_id', $datosProgramaGuardados['tipos_programa_id'] ?? '') ? 'selected' : '' }}>Selecciona un tipo</option>
                                     @foreach($tipos as $tipo)
-                                        <option value="{{ $tipo->id }}">{{ $tipo->tipo }}</option>
+                                        <option value="{{ $tipo->id }}" {{ (old('tipos_programa_id', $datosProgramaGuardados['tipos_programa_id'] ?? '') == $tipo->id) ? 'selected' : '' }}>
+                                            {{ $tipo->tipo }}
+                                        </option>
                                     @endforeach
-                                    <option value="0">Otro</option>
+                                    <option value="0" {{ (old('tipos_programa_id', $datosProgramaGuardados['tipos_programa_id'] ?? '') == '0') ? 'selected' : '' }}>Otro</option>
                                 </select>
                                 <div class="error-message hidden text-red-500 text-sm" id="tipos_programa_id-error"></div>
                             </div>
@@ -170,9 +185,11 @@
                                 </label>
                                 <select name="metodo_servicio_id" id="metodo_servicio_id" required 
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona un método</option>
+                                    <option value="" disabled {{ !old('metodo_servicio_id', $datosProgramaGuardados['metodo_servicio_id'] ?? '') ? 'selected' : '' }}>Selecciona un método</option>
                                     @foreach($metodos as $met)
-                                        <option value="{{ $met->id }}">{{ $met->metodo }}</option>
+                                        <option value="{{ $met->id }}" {{ (old('metodo_servicio_id', $datosProgramaGuardados['metodo_servicio_id'] ?? '') == $met->id) ? 'selected' : '' }}>
+                                            {{ $met->metodo }}
+                                        </option>
                                     @endforeach
                                 </select>
                                 <div class="error-message hidden text-red-500 text-sm" id="metodo_servicio_id-error"></div>
@@ -237,9 +254,11 @@
                                 </label>
                                 <select name="titulos_id" id="titulos_id" required 
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona un título</option>
+                                    <option value="" disabled {{ !old('titulos_id', $datosProgramaGuardados['titulos_id'] ?? '') ? 'selected' : '' }}>Selecciona un título</option>
                                     @foreach($titulos as $titulo)
-                                        <option value="{{ $titulo->id }}">{{ $titulo->titulo }}</option>
+                                        <option value="{{ $titulo->id }}" {{ (old('titulos_id', $datosProgramaGuardados['titulos_id'] ?? '') == $titulo->id) ? 'selected' : '' }}>
+                                            {{ $titulo->titulo }}
+                                        </option>
                                     @endforeach
                                 </select>
                                 <div class="error-message hidden text-red-500 text-sm" id="titulos_id-error"></div>
@@ -274,7 +293,7 @@
 
                 <!-- Action Buttons -->
                 <div class="bg-gray-50 px-6 sm:px-8 py-4 flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
-                    <a href="{{ url('/escolaridad') }}" 
+                    <a href="#" onclick="guardarYRetroceder()" 
                        class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
@@ -409,6 +428,21 @@
                 mostrarError(this, '');
             });
 
+            // CARGAR DATOS GUARDADOS AL CARGAR LA PÁGINA
+            // Verificar si "Otra institución" debe mostrarse
+            const instituciones_id_guardado = "{{ old('instituciones_id', $datosProgramaGuardados['instituciones_id'] ?? '') }}";
+            if (instituciones_id_guardado === 'otra') {
+                document.getElementById('otra_institucion_div').classList.remove('hidden');
+                document.getElementById('otra_institucion').setAttribute('required', 'required');
+            }
+
+            // Verificar si "Otro programa" debe mostrarse
+            const tipos_programa_id_guardado = "{{ old('tipos_programa_id', $datosProgramaGuardados['tipos_programa_id'] ?? '') }}";
+            if (tipos_programa_id_guardado === '0') {
+                document.getElementById('otro_programa_div').classList.remove('hidden');
+                document.getElementById('otro_programa').setAttribute('required', 'required');
+            }
+
             // Validación de teléfono
             const telInput = document.getElementById('telefono_institucion');
             telInput.addEventListener('input', function() {
@@ -499,6 +533,7 @@
                         if (!primerError) primerError = sel;
                     }
                 });
+                
 
                 // Validar inputs requeridos visibles
                 inputs.forEach(inp => {
@@ -552,6 +587,23 @@
                 }
             });
         });
+
+        function guardarYRetroceder() {
+            // Copiar valores a campos ocultos
+            document.getElementById('hidden_instituciones_id').value = document.getElementById('instituciones_id').value;
+            document.getElementById('hidden_telefono_institucion').value = document.getElementById('telefono_institucion').value;
+            document.getElementById('hidden_nombre_programa').value = document.getElementById('nombre_programa').value;
+            document.getElementById('hidden_tipos_programa_id').value = document.getElementById('tipos_programa_id').value;
+            document.getElementById('hidden_metodo_servicio_id').value = document.getElementById('metodo_servicio_id').value;
+            document.getElementById('hidden_fecha_inicio').value = document.getElementById('fecha_inicio').value;
+            document.getElementById('hidden_fecha_final').value = document.getElementById('fecha_final').value;
+            document.getElementById('hidden_titulos_id').value = document.getElementById('titulos_id').value;
+            document.getElementById('hidden_encargado_nombre').value = document.getElementById('encargado_nombre').value;
+            document.getElementById('hidden_puesto_encargado').value = document.getElementById('puesto_encargado').value;
+
+            // Enviar el formulario oculto
+            document.getElementById('formAtras').submit();
+        }
     </script>
 </body>
 </html>

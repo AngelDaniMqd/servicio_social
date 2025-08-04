@@ -52,7 +52,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'correo'   => 'required|email',
+            'correo' => 'required|email',
             'password' => 'required'
         ]);
 
@@ -64,16 +64,22 @@ class AuthController extends Controller
             ]);
         }
 
-        // Inicia sesión, por ejemplo almacenando el usuario en la sesión
+        // AGREGAR ESTAS LÍNEAS para establecer la sesión:
+        session(['admin_authenticated' => true]);
+        session(['admin_user' => $usuario]);
         session(['usuario_id' => $usuario->id]);
 
-        return redirect()->route('dashboard');
+        return redirect()->route('dashboard')->with('success', 'Bienvenido al panel de administración');
     }
 
     // Cerrar sesión
     public function logout(Request $request)
     {
-        $request->session()->forget('usuario_id');
-        return redirect()->route('login');
+        // Limpiar todas las sesiones de autenticación
+        session()->forget(['admin_authenticated', 'admin_user', 'usuario_id']);
+        session()->invalidate();
+        session()->regenerateToken();
+        
+        return redirect()->route('login')->with('success', 'Sesión cerrada correctamente');
     }
 }

@@ -548,23 +548,93 @@ class DatabaseOverviewController extends Controller
     // Agregar método para eliminar registros
     public function delete($table, $id)
     {
+        \Log::info('=== DELETE DATABASEOVERVIEWCONTROLLER EJECUTADO ===');
+        \Log::info('Tabla: ' . $table);
+        \Log::info('ID: ' . $id);
+        \Log::info('URL: ' . request()->fullUrl());
+        
         try {
+            // Validar que la tabla sea permitida
+            $allowedTables = [
+                'alumno', 'ubicaciones', 'escolaridad_alumno', 
+                'programa_servicio_social', 'instituciones', 
+                'municipios', 'estados', 'tipos_programa',
+                'metodo_servicio', 'titulos', 'carreras',
+                'modalidad', 'semestres', 'grupos', 'edad', 'sexo'
+            ];
+            
+            if (!in_array($table, $allowedTables)) {
+                \Log::error('Tabla no permitida: ' . $table);
+                return redirect()->route('dashboard', ['table' => $table])
+                    ->with('error', 'Tabla no permitida para eliminación');
+            }
+
+            \Log::info('Tabla permitida, procediendo...');
+
             if ($table === 'alumno') {
+                \Log::info('Eliminando alumno...');
                 return $this->deleteAlumno($id);
             }
 
-            // Para otras tablas
+            // Para instituciones, verificar dependencias
+            if ($table === 'instituciones') {
+                $dependencias = DB::table('programa_servicio_social')
+                    ->where('instituciones_id', $id)
+                    ->count();
+                
+                \Log::info('Verificando dependencias de institución. Encontradas: ' . $dependencias);
+                
+                if ($dependencias > 0) {
+                    return redirect()->route('dashboard', ['table' => $table])
+                        ->with('error', "No se puede eliminar la institución porque tiene {$dependencias} programa(s) de servicio social asociado(s).");
+                }
+            }
+
+            if ($table === 'tipos_programa') {
+                $dependencias = DB::table('programa_servicio_social')
+                    ->where('tipos_programa_id', $id)
+                    ->count();
+                    
+                \Log::info('Verificando dependencias de tipo programa. Encontradas: ' . $dependencias);
+                
+                if ($dependencias > 0) {
+                    return redirect()->route('dashboard', ['table' => $table])
+                        ->with('error', "No se puede eliminar el tipo de programa porque tiene {$dependencias} programa(s) de servicio social asociado(s).");
+                }
+            }
+
+            // Verificar que el registro existe antes de eliminarlo
+            $record = DB::table($table)->where('id', $id)->first();
+            if (!$record) {
+                \Log::error('Registro no encontrado para eliminar: ' . $table . ' ID: ' . $id);
+                return redirect()->route('dashboard', ['table' => $table])
+                    ->with('error', 'El registro que intenta eliminar no existe');
+            }
+
+            \Log::info('Registro encontrado, eliminando...');
+            
+            // Eliminar el registro
             $deleted = DB::table($table)->where('id', $id)->delete();
+            \Log::info('Registros eliminados: ' . $deleted);
             
             if ($deleted) {
+                \Log::info('Eliminación exitosa');
                 return redirect()->route('dashboard', ['table' => $table])
                                ->with('success', 'Registro eliminado exitosamente');
             } else {
+                \Log::error('No se pudo eliminar el registro');
                 return redirect()->back()
                                ->with('error', 'No se pudo eliminar el registro');
             }
 
         } catch (\Exception $e) {
+            \Log::error('Error al eliminar registro:', [
+                'table' => $table,
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return redirect()->back()
                            ->with('error', 'Error al eliminar: ' . $e->getMessage());
         }
@@ -1112,21 +1182,49 @@ class DatabaseOverviewController extends Controller
 public function cancelarAlumno($id)
 {
     try {
-        $updated = DB::table('alumno')
-            ->where('id', $id)
-            ->update(['status_id' => 2]); // Cambiar a status "cancelado"
-
-        if ($updated) {
+        \Log::info('=== CANCELANDO ALUMNO ===');
+        \Log::info('ID del alumno: ' . $id);
+        \Log::info('Método HTTP: ' . request()->method());
+        \Log::info('URL completa: ' . request()->fullUrl());
+        
+        // Verificar que el alumno existe
+        $alumno = DB::table('alumno')->where('id', $id)->first();
+        if (!$alumno) {
+            \Log::error('Alumno no encontrado con ID: ' . $id);
             return redirect()->route('dashboard', ['table' => 'alumno'])
-                           ->with('success', 'Alumno cancelado exitosamente');
-        } else {
-            return redirect()->back()
-                           ->with('error', 'No se pudo cancelar el alumno');
+                ->with('error', 'Alumno no encontrado');
         }
 
+        \Log::info('Alumno encontrado:', (array)$alumno);
+        
+        // Cambiar status a "Eliminado" (asumiendo que el ID 2 es "Eliminado")
+        $result = DB::table('alumno')
+            ->where('id', $id)
+            ->update(['status_id' => 2]);
+        
+        \Log::info('Resultado de la actualización. Filas afectadas: ' . $result);
+        
+        if ($result > 0) {
+            \Log::info('Alumno cancelado exitosamente');
+            return redirect()->route('dashboard', ['table' => 'alumno'])
+                ->with('success', 'Alumno eliminado exitosamente');
+        } else {
+            \Log::warning('No se actualizó ninguna fila. Posiblemente ya tenía status_id = 2');
+            return redirect()->route('dashboard', ['table' => 'alumno'])
+                ->with('info', 'El alumno ya estaba marcado como eliminado');
+        }
+        
     } catch (\Exception $e) {
-        return redirect()->back()
-                       ->with('error', 'Error al cancelar alumno: ' . $e->getMessage());
+        \Log::error('Error al cancelar alumno:', [
+            'id' => $id,
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return redirect()->route('dashboard', ['table' => 'alumno'])
+            ->with('error', 'Error al eliminar el alumno: ' . $e->getMessage());
     }
 }
 }

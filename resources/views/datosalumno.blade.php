@@ -1,8 +1,3 @@
-@php
-    $estados = DB::table('estados')->select('id','nombre')->get();
-    $municipios = DB::table('municipios')->select('id','nombre','estado_id')->get();
-    $edades = DB::table('edad')->select('id','edades')->get();
-@endphp
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -12,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            
             theme: {
                 extend: {
                     colors: {
@@ -24,6 +20,7 @@
     </script>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen py-4 sm:py-8">
+    
     <div class="container mx-auto px-4 max-w-4xl">
         <!-- Header Card -->
         <div class="bg-white rounded-2xl shadow-lg mb-6 p-6 border border-gray-200">
@@ -127,9 +124,9 @@
                                 <label for="apellido_paterno" class="block text-sm font-medium text-gray-700">
                                     Apellido Paterno <span class="text-red-500">*</span>
                                 </label>
-                                <input type="text" name="apellido_paterno" id="apellido_paterno" required 
+                                <input type="text" name="apellido_p" id="apellido_paterno" required 
                                        maxlength="45" placeholder="García"
-                                       value="{{ old('apellido_paterno', $datosGuardados['apellido_paterno'] ?? '') }}"
+                                       value="{{ old('apellido_p', $datosGuardados['apellido_p'] ?? '') }}"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
                                 <div class="error-message hidden text-red-500 text-sm" id="apellido_paterno-error"></div>
                             </div>
@@ -139,9 +136,9 @@
                                 <label for="apellido_materno" class="block text-sm font-medium text-gray-700">
                                     Apellido Materno <span class="text-red-500">*</span>
                                 </label>
-                                <input type="text" name="apellido_materno" id="apellido_materno" required 
+                                <input type="text" name="apellido_m" id="apellido_materno" required 
                                        maxlength="45" placeholder="López"
-                                       value="{{ old('apellido_materno', $datosGuardados['apellido_materno'] ?? '') }}"
+                                       value="{{ old('apellido_m', $datosGuardados['apellido_m'] ?? '') }}"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
                                 <div class="error-message hidden text-red-500 text-sm" id="apellido_materno-error"></div>
                             </div>
@@ -228,6 +225,7 @@
                                 <input type="text" name="cp" id="cp" required 
                                        maxlength="5" minlength="5" pattern="[0-9]{5}" 
                                        placeholder="45500"
+                                       value="{{ old('cp', $datosGuardados['cp'] ?? '') }}"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base">
                                 <div class="error-message hidden text-red-500 text-sm" id="cp-error"></div>
                             </div>
@@ -240,13 +238,15 @@
                                 <label for="estado" class="block text-sm font-medium text-gray-700">
                                     Estado <span class="text-red-500">*</span>
                                 </label>
-                                <select name="estado" id="estado" required 
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona un estado</option>
-                                    @foreach($estados as $estado)
-                                        <option value="{{ $estado->id }}">{{ $estado->nombre }}</option>
-                                    @endforeach
-                                </select>
+                               <select name="estado" id="estado" required 
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base">
+    <option value="" disabled {{ !old('estado', $datosGuardados['estado'] ?? '') ? 'selected' : '' }}>Selecciona un estado</option>
+    @foreach($estados as $estado)
+        <option value="{{ $estado->id }}" {{ (old('estado', $datosGuardados['estado'] ?? '') == $estado->id) ? 'selected' : '' }}>
+            {{ $estado->nombre }}
+        </option>
+    @endforeach
+</select>
                                 <div class="error-message hidden text-red-500 text-sm" id="estado-error"></div>
                             </div>
 
@@ -255,11 +255,13 @@
                                 <label for="municipio" class="block text-sm font-medium text-gray-700">
                                     Municipio <span class="text-red-500">*</span>
                                 </label>
-                                <select name="municipio" id="municipio" required 
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base opacity-50 cursor-not-allowed"
-                                        disabled>
-                                    <option value="" disabled selected>Primero selecciona un estado</option>
-                                </select>
+                               <select name="municipio" id="municipio" required 
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm sm:text-base {{ !old('estado', $datosGuardados['estado'] ?? '') ? 'opacity-50 cursor-not-allowed' : '' }}"
+        {{ !old('estado', $datosGuardados['estado'] ?? '') ? 'disabled' : '' }}>
+    <option value="" disabled {{ !old('municipio', $datosGuardados['municipio'] ?? '') ? 'selected' : '' }}>
+        {{ old('estado', $datosGuardados['estado'] ?? '') ? 'Selecciona un municipio' : 'Primero selecciona un estado' }}
+    </option>
+</select>
                                 <div class="error-message hidden text-red-500 text-sm" id="municipio-error"></div>
                             </div>
                         </div>
@@ -406,6 +408,11 @@
         
         // Validación para selects
         function validarSelect(select) {
+            // Si es el municipio y está cargando, no validar aún
+            if (select.id === 'municipio' && select.innerHTML.includes('Cargando')) {
+                return true;
+            }
+            
             if (select.required && select.value === "") {
                 mostrarError(select, "Este campo es requerido");
                 return false;
@@ -421,26 +428,35 @@
             const municipioSelect = document.getElementById('municipio');
             const selectedEstadoId = estadoSelect.value;
             
-            municipioSelect.innerHTML = '<option value="" disabled selected>Selecciona un municipio</option>';
+            // Limpiar error del municipio mientras se cargan los datos
+            const municipioError = document.getElementById('municipio-error');
+            if (municipioError) {
+                municipioError.classList.add('hidden');
+                municipioSelect.classList.remove('border-red-500', 'ring-red-500');
+            }
+            
+            municipioSelect.innerHTML = '<option value="" disabled selected>Cargando municipios...</option>';
             
             const filtrados = municipiosData.filter(m => m.estado_id == selectedEstadoId);
             
-            if (filtrados.length > 0) {
-                municipioSelect.disabled = false;
-                municipioSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+            setTimeout(() => {
+                municipioSelect.innerHTML = '<option value="" disabled selected>Selecciona un municipio</option>';
                 
-                filtrados.forEach(m => {
-                    const opt = document.createElement('option');
-                    opt.value = m.id;
-                    opt.textContent = m.nombre;
-                    municipioSelect.appendChild(opt);
-                });
-            } else {
-                municipioSelect.disabled = true;
-                municipioSelect.classList.add('opacity-50', 'cursor-not-allowed');
-            }
-            
-            validarSelect(municipioSelect);
+                if (filtrados.length > 0) {
+                    municipioSelect.disabled = false;
+                    municipioSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+                    
+                    filtrados.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.id;
+                        opt.textContent = m.nombre;
+                        municipioSelect.appendChild(opt);
+                    });
+                } else {
+                    municipioSelect.disabled = true;
+                    municipioSelect.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            }, 50);
         }
 
         // Modal de error
@@ -526,11 +542,20 @@
                 // Validar todos los campos requeridos
                 const requiredFields = this.querySelectorAll('[required]');
                 requiredFields.forEach(field => {
-                    if (field.id === 'correo' && !validarCorreo(field)) isValid = false;
+                    // Validación especial para municipio: si tiene valor, es válido
+                    if (field.id === 'municipio') {
+                        if (!field.value || field.value === "") {
+                            mostrarError(field, "Este campo es requerido");
+                            isValid = false;
+                        } else {
+                            mostrarError(field, ''); // Limpiar error si tiene valor
+                        }
+                    }
+                    else if (field.id === 'correo' && !validarCorreo(field)) isValid = false;
                     else if (field.id === 'telefono' && !validarTelefono(field)) isValid = false;
                     else if (field.id === 'cp' && !validarCP(field)) isValid = false;
                     else if (camposNombres.includes(field.id) && !validarNombreApellido(field)) isValid = false;
-                    else if (selects.includes(field.id) && !validarSelect(field)) isValid = false;
+                    else if (selects.includes(field.id) && field.id !== 'municipio' && !validarSelect(field)) isValid = false;
                 });
                 
                 if (!isValid) {
@@ -538,6 +563,38 @@
                     mostrarModalError();
                 }
             });
+
+            // CARGAR DATOS GUARDADOS AL FINAL - MEJORADO
+    const municipioGuardado = "{{ old('municipio', $datosGuardados['municipio'] ?? '') }}";
+    const estadoGuardado = "{{ old('estado', $datosGuardados['estado'] ?? '') }}";
+
+    console.log('Estado guardado:', estadoGuardado);
+    console.log('Municipio guardado:', municipioGuardado);
+
+    if (estadoGuardado) {
+        // Asegurar que el estado esté seleccionado
+        document.getElementById('estado').value = estadoGuardado;
+        
+        // Cargar municipios y luego seleccionar el guardado
+        setTimeout(() => {
+            cargarMunicipios();
+            
+            if (municipioGuardado) {
+                // Esperar a que se carguen los municipios y luego seleccionar
+                setTimeout(() => {
+                    const municipioSelect = document.getElementById('municipio');
+                    municipioSelect.value = municipioGuardado;
+                    
+                    // Forzar validación exitosa del municipio
+                    if (municipioSelect.value === municipioGuardado) {
+                        mostrarError(municipioSelect, ''); // Limpiar error
+                        municipioSelect.classList.add('border-green-500');
+                        console.log('Municipio restaurado correctamente:', municipioGuardado);
+                    }
+                }, 300); // Aumentar tiempo de espera
+            }
+        }, 100);
+    }
         });
     </script>
 </body>

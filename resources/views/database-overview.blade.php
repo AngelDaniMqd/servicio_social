@@ -122,6 +122,15 @@ use Carbon\Carbon;
                         </div>
                         
                         <div class="flex items-center space-x-3">
+                               @if($selectedTable !== 'formatos')
+                                <a href="{{ route('record.create', ['table' => $selectedTable]) }}" 
+                                   class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-lg font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                    </svg>
+                                    Agregar Nuevo
+                                </a>
+                            @endif
                             @if($selectedTable === 'alumno')
                                 <div class="relative" x-data="{ open: false }">
                                     <button @click="open = !open" 
@@ -893,6 +902,11 @@ let cancelRecordId = null;
 let cancelTableName = null;
 let cancelCountdownTimer = null;
 
+// URLs generadas por Laravel
+const baseDeleteUrl = '{{ route("record.delete", ["table" => "PLACEHOLDER_TABLE", "id" => "PLACEHOLDER_ID"]) }}'
+    .replace('PLACEHOLDER_TABLE', '')
+    .replace('PLACEHOLDER_ID', '');
+
 // Función para abrir modal de eliminación
 function openDeleteModal(id, table) {
     deleteRecordId = id;
@@ -963,21 +977,27 @@ function closeDeleteModal() {
     }
 }
 
-// Función para confirmar eliminación
+// Función para confirmar eliminación - VERSIÓN MEJORADA
 function confirmDelete() {
-    if (!deleteRecordId || !deleteTableName) return;
+    if (!deleteRecordId || !deleteTableName) {
+        console.error('Faltan datos para eliminar:', { deleteRecordId, deleteTableName });
+        return;
+    }
+    
+    console.log('Eliminando registro:', { id: deleteRecordId, table: deleteTableName });
     
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = `/record/delete/${deleteTableName}/${deleteRecordId}`;
+    
+    // ⚠️ CORREGIR URL - AGREGAR /admin:
+    form.action = `/admin/record/delete/${deleteTableName}/${deleteRecordId}`;
+    
+    console.log('URL de eliminación:', form.action);
     
     const csrfToken = document.createElement('input');
     csrfToken.type = 'hidden';
     csrfToken.name = '_token';
-    const metaToken = document.querySelector('meta[name="csrf-token"]');
-    if (metaToken) {
-        csrfToken.value = metaToken.getAttribute('content');
-    }
+    csrfToken.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     
     const methodField = document.createElement('input');
     methodField.type = 'hidden';
@@ -987,6 +1007,8 @@ function confirmDelete() {
     form.appendChild(csrfToken);
     form.appendChild(methodField);
     document.body.appendChild(form);
+    
+    console.log('Enviando formulario de eliminación...', form);
     form.submit();
 }
 
@@ -1062,11 +1084,20 @@ function closeCancelModal() {
 
 // Función para confirmar cancelación
 function confirmCancel() {
-    if (!cancelRecordId || !cancelTableName) return;
+    if (!cancelRecordId || !cancelTableName) {
+        console.error('Faltan datos para cancelar:', { cancelRecordId, cancelTableName });
+        return;
+    }
+    
+    console.log('Cancelando alumno:', { id: cancelRecordId, table: cancelTableName });
     
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = `/alumno/cancelar/${cancelRecordId}`;
+    
+    // ⚠️ CORREGIR URL - AGREGAR /admin:
+    form.action = `/admin/alumno/cancelar/${cancelRecordId}`;
+    
+    console.log('URL de cancelación:', form.action);
     
     const csrfToken = document.createElement('input');
     csrfToken.type = 'hidden';
@@ -1084,6 +1115,13 @@ function confirmCancel() {
     form.appendChild(csrfToken);
     form.appendChild(methodField);
     document.body.appendChild(form);
+    
+    console.log('Enviando formulario de cancelación...', {
+        action: form.action,
+        method: form.method,
+        inputs: form.querySelectorAll('input')
+    });
+    
     form.submit();
 }
 

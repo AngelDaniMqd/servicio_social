@@ -1,9 +1,3 @@
-@php
-    $modalidades = DB::table('modalidad')->select('id','nombre')->get();
-    $carreras = DB::table('carreras')->select('id','nombre')->get();
-    $semestres = DB::table('semestres')->select('id','nombre')->get();
-    $grupos = DB::table('grupos')->select('id','letra')->get();
-@endphp
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -84,7 +78,7 @@
                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base">
                                     <div class="absolute inset-y-0 right-0 flex items-center pr-3">
                                         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l-4-16m2 16l4-16M6 9h14M4 15h14"/>
                                         </svg>
                                     </div>
                                 </div>
@@ -102,6 +96,7 @@
                                 <div class="relative">
                                     <input type="number" name="meses_servicio" id="meses_servicio" required 
                                            min="1" max="12" placeholder="6"
+                                           value="{{ old('meses_servicio', $datosEscolaridadGuardados['meses_servicio'] ?? '') }}"
                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base">
                                     <div class="absolute inset-y-0 right-0 flex items-center pr-3">
                                         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,13 +127,15 @@
                                 <label for="modalidad_id" class="block text-sm font-medium text-gray-700">
                                     Modalidad <span class="text-red-500">*</span>
                                 </label>
-                                <select name="modalidad_id" id="modalidad_id" required 
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona una modalidad</option>
-                                    @foreach($modalidades as $modalidad)
-                                        <option value="{{ $modalidad->id }}">{{ $modalidad->nombre }}</option>
-                                    @endforeach
-                                </select>
+                               <select name="modalidad_id" id="modalidad_id" required 
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
+    <option value="" disabled {{ !old('modalidad_id', $datosEscolaridadGuardados['modalidad_id'] ?? '') ? 'selected' : '' }}>Selecciona una modalidad</option>
+    @foreach($modalidades as $modalidad)
+        <option value="{{ $modalidad->id }}" {{ (old('modalidad_id', $datosEscolaridadGuardados['modalidad_id'] ?? '') == $modalidad->id) ? 'selected' : '' }}>
+            {{ $modalidad->nombre }}
+        </option>
+    @endforeach
+</select>
                             </div>
 
                             <!-- Carrera -->
@@ -146,13 +143,15 @@
                                 <label for="carreras_id" class="block text-sm font-medium text-gray-700">
                                     Carrera <span class="text-red-500">*</span>
                                 </label>
-                                <select name="carreras_id" id="carreras_id" required 
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona una carrera</option>
-                                    @foreach($carreras as $carrera)
-                                        <option value="{{ $carrera->id }}">{{ $carrera->nombre }}</option>
-                                    @endforeach
-                                </select>
+                               <select name="carreras_id" id="carreras_id" required 
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
+    <option value="" disabled {{ !old('carreras_id', $datosEscolaridadGuardados['carreras_id'] ?? '') ? 'selected' : '' }}>Selecciona una carrera</option>
+    @foreach($carreras as $carrera)
+        <option value="{{ $carrera->id }}" {{ (old('carreras_id', $datosEscolaridadGuardados['carreras_id'] ?? '') == $carrera->id) ? 'selected' : '' }}>
+            {{ $carrera->nombre }}
+        </option>
+    @endforeach
+</select>
                             </div>
                         </div>
 
@@ -163,13 +162,15 @@
                                 <label for="semestres_id" class="block text-sm font-medium text-gray-700">
                                     Semestre <span class="text-red-500">*</span>
                                 </label>
-                                <select name="semestres_id" id="semestres_id" required 
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona un semestre</option>
-                                    @foreach($semestres as $semestre)
-                                        <option value="{{ $semestre->id }}">{{ $semestre->nombre }}</option>
-                                    @endforeach
-                                </select>
+                               <select name="semestres_id" id="semestres_id" required 
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
+    <option value="" disabled {{ !old('semestres_id', $datosEscolaridadGuardados['semestres_id'] ?? '') ? 'selected' : '' }}>Selecciona un semestre</option>
+    @foreach($semestres as $semestre)
+        <option value="{{ $semestre->id }}" {{ (old('semestres_id', $datosEscolaridadGuardados['semestres_id'] ?? '') == $semestre->id) ? 'selected' : '' }}>
+            {{ $semestre->nombre }}
+        </option>
+    @endforeach
+</select>
                             </div>
 
                             <!-- Grupo -->
@@ -178,12 +179,14 @@
                                     Grupo <span class="text-red-500">*</span>
                                 </label>
                                 <select name="grupos_id" id="grupos_id" required 
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled selected>Selecciona un grupo</option>
-                                    @foreach($grupos as $grupo)
-                                        <option value="{{ $grupo->id }}">{{ $grupo->letra }}</option>
-                                    @endforeach
-                                </select>
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
+    <option value="" disabled {{ !old('grupos_id', $datosEscolaridadGuardados['grupos_id'] ?? '') ? 'selected' : '' }}>Selecciona un grupo</option>
+    @foreach($grupos as $grupo)
+        <option value="{{ $grupo->id }}" {{ (old('grupos_id', $datosEscolaridadGuardados['grupos_id'] ?? '') == $grupo->id) ? 'selected' : '' }}>
+            {{ $grupo->letra }}
+        </option>
+    @endforeach
+</select>
                             </div>
                         </div>
                     </div>
