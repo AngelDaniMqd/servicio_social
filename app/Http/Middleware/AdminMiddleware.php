@@ -88,7 +88,12 @@ class AdminMiddleware
         $response->headers->set('X-XSS-Protection', '1; mode=block');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         
-        // ✅ CSP CORREGIDO - Incluir 'unsafe-eval' para Alpine.js
+        // 🔒 Solo aplicar HSTS si realmente es HTTPS
+        if ($request->secure()) {
+            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        }
+        
+        // CSP SIN upgrade-insecure-requests para HTTP
         $csp = "default-src 'self'; " .
                "script-src 'self' 'unsafe-inline' 'unsafe-eval' " .
                "https://cdn.tailwindcss.com " .
@@ -112,10 +117,6 @@ class AdminMiddleware
         $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         $response->headers->set('Pragma', 'no-cache');
         $response->headers->set('Expires', 'Thu, 01 Jan 1970 00:00:00 GMT');
-        
-        if ($request->secure()) {
-            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-        }
         
         return $response;
     }
