@@ -1,9 +1,9 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\Formato;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB; // <-- usar DB
 use PhpOffice\PhpWord\TemplateProcessor;
 
 class FormatoController extends Controller
@@ -21,63 +21,21 @@ class FormatoController extends Controller
     {
         $tipo = $request->query('tipo', 'word');
 
-        $colMap = [
-            'word' => 'formato_word',
-            'reporte' => 'formato_reporte',
-            'reporte_final' => 'formato_reporte_final',
-        ];
-        $col = $colMap[$tipo] ?? 'formato_word';
-
-        // 1) Obtén la fila de formatos (elige la estrategia correcta para tu app):
-        // Opción A: el ID de la URL es el id de la tabla 'formatos'
-        $formato = Formato::find($id);
-
-        // Opción B (si el ID no es de 'formatos'): toma el más reciente (ajusta a tu caso)
-        if (!$formato) {
-            $formato = Formato::latest('id')->first();
+        // Obtener datos completos del alumno
+        $alumno = $this->obtenerDatosCompletos($id);
+        if (!$alumno) {
+            abort(404, 'Alumno no encontrado');
         }
 
-        if (!$formato || empty($formato->$col)) {
-            Log::error('Plantilla no encontrada en BD', ['id' => $id, 'col' => $col]);
-            abort(404, 'Plantilla no encontrada');
-        }
-
-        // 2) Asegura que el contenido sea DOCX válido (ZIP que empieza con 'PK')
-        $blob = $formato->$col;
-
-        // Si el BLOB está base64-encoded en la BD, decodifica
-        if (substr((string)$blob, 0, 2) !== 'PK') {
-            $decoded = base64_decode($blob, true);
-            if ($decoded !== false && substr($decoded, 0, 2) === 'PK') {
-                $blob = $decoded;
-            }
-        }
-
-        // 3) Escribe a un archivo temporal .docx
-        $tmpBase = tempnam(sys_get_temp_dir(), 'tpl_');
-        $tplPath = $tmpBase . '.docx';
-        file_put_contents($tplPath, $blob);
-
-        if (!class_exists(\ZipArchive::class)) {
-            Log::error('Extensión ZIP no disponible');
-            abort(500, 'Extensión ZIP no disponible en el servidor');
-        }
-
-        try {
-            // 4) Abre la plantilla desde el temp y rellena
-            $tpl = new TemplateProcessor($tplPath);
-
-            // ...existing code... Rellena variables:
-            // $alumno = Alumno::findOrFail($id);
-            // $tpl->setValue('nombre_alumno', $alumno->nombre);
-
-            $out = tempnam(sys_get_temp_dir(), 'docx_') . '.docx';
-            $tpl->saveAs($out);
-
-            return response()->download($out, "carta_{$id}.docx")->deleteFileAfterSend(true);
-        } finally {
-            @unlink($tplPath);
-            @unlink($tmpBase);
+        // Despachar al generador correcto (estos métodos ya leen el BLOB desde la BD)
+        switch ($tipo) {
+            case 'reporte':
+                return $this->generarReporte($alumno);
+            case 'reporte_final':
+                return $this->generarReporteFinal($alumno);
+            case 'word':
+            default:
+                return $this->generarFormatoWord($alumno);
         }
     }
 
