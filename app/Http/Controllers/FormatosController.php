@@ -119,32 +119,48 @@ class FormatosController extends Controller
                        ->with('success', 'Formatos actualizados exitosamente');
     }
 
-    public function descargarFormato(int $id)
+    public function descargarFormato(Request $request, int $id)
     {
         try {
-            // Ejemplo: pon tu ruta real del .docx (asegúrate que el archivo esté en el repo)
-            $templatePath = resource_path('plantillas/cartas/formato.docx'); // usa /, no \
+            $tipo = $request->query('tipo', 'word'); // default si no viene ?tipo=
+            if (!in_array($tipo, ['word', 'docx'])) {
+                Log::warning('Tipo inválido', ['tipo' => $tipo, 'id' => $id]);
+                return abort(422, 'Tipo de formato inválido');
+            }
+
+            // IMPORTANTE: usa / (no \) y respeta mayúsculas/minúsculas reales del archivo
+            $templatePath = resource_path('plantillas/cartas/formato.docx');
+            Log::info('Generando formato', ['id' => $id, 'tipo' => $tipo, 'template' => $templatePath]);
 
             if (!file_exists($templatePath)) {
                 Log::error('Template no encontrado', ['path' => $templatePath]);
-                abort(404, 'Template no encontrado');
+                return abort(404, 'Template no encontrado');
             }
 
-            // Genera el documento en memoria (sin escribir a disco)
-            $template = new TemplateProcessor($templatePath);
-            // ... rellena variables ...
-            // $template->setValue('alumno', $alumno->nombre);
+            if (!class_exists(TemplateProcessor::class)) {
+                Log::error('phpoffice/phpword no está instalado');
+                return abort(500, 'Dependencia faltante: phpoffice/phpword');
+            }
 
-            $tmpFile = tempnam(sys_get_temp_dir(), 'docx_');
-            $template->saveAs($tmpFile);
+            // Carga de datos (ajusta a tu modelo)
+            // $alumno = Alumno::findOrFail($id);
 
-            return response()->download($tmpFile, 'carta.docx')->deleteFileAfterSend(true);
+            $tpl = new TemplateProcessor($templatePath);
+            // $tpl->setValue('alumno', $alumno->nombre); // ... rellena tus variables
+
+            $tmp = tempnam(sys_get_temp_dir(), 'docx_');
+            $tpl->saveAs($tmp);
+
+            $filename = "carta_{$id}.docx";
+            return response()->download($tmp, $filename)->deleteFileAfterSend(true);
         } catch (\Throwable $e) {
-            Log::error('Error generando Word', [
+            Log::error('Error generando formato', [
+                'id' => $id,
                 'msg' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
-            abort(500, 'Error al generar el documento');
+            return abort(500, 'Error al generar el documento');
         }
     }
 }
