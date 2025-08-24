@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 class FormatoController extends Controller
@@ -18,29 +19,48 @@ class FormatoController extends Controller
         return view('alumnos_descargar', ['alumnos' => $alumnos]);
     }
 
-    public function downloadEditedWord($id, $tipo = 'word')
+    public function downloadEditedWord(string $id, string $tipo = 'word')
     {
         try {
-            // Obtener datos completos del alumno con la nueva estructura de relaciones
-            $alumno = $this->obtenerDatosCompletos($id);
-            
-            if (!$alumno) {
-                return redirect()->back()->with('error', 'Alumno no encontrado.');
+            // 1) Ruta real de tu plantilla (ajústala a tu estructura)
+            $templatePath = resource_path('plantillas/cartas/formato.docx'); // usa / y respeta mayúsculas
+
+            if (!is_file($templatePath)) {
+                Log::error('Template .docx no encontrado', ['path' => $templatePath]);
+                abort(404, 'Template no encontrado');
+            }
+            if (filesize($templatePath) < 500) {
+                Log::warning('Template muy pequeño, posible archivo corrupto', [
+                    'path' => $templatePath, 'size' => filesize($templatePath)
+                ]);
+            }
+            if (!class_exists(\ZipArchive::class)) {
+                Log::error('Extensión ZIP no cargada');
+                abort(500, 'Extensión ZIP no disponible');
             }
 
-            // Procesar según el tipo de descarga
-            switch ($tipo) {
-                case 'word':
-                    return $this->generarFormatoWord($alumno);
-                case 'reporte':
-                    return $this->generarReporte($alumno);
-                case 'reporte_final':
-                    return $this->generarReporteFinal($alumno);
-                default:
-                    return redirect()->back()->with('error', 'Tipo de formato no válido.');
-            }
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error al generar el documento: ' . $e->getMessage());
+            // 2) Cargar el template directamente (PhpWord se encarga del temp interno)
+            $tpl = new TemplateProcessor($templatePath);
+
+            // ...existing code... Rellena variables:
+            // $alumno = Alumno::findOrFail($id);
+            // $tpl->setValue('nombre_alumno', $alumno->nombre);
+
+            // 3) Guardar a un archivo temporal y descargar
+            $tmp = tempnam(sys_get_temp_dir(), 'docx_');
+            $tpl->saveAs($tmp);
+
+            $filename = "carta_{$id}.docx";
+            return response()->download($tmp, $filename)->deleteFileAfterSend(true);
+
+        } catch (\Throwable $e) {
+            Log::error('Error generando Word', [
+                'id' => $id,
+                'msg' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            abort(500, 'Error al generar el documento');
         }
     }
 
