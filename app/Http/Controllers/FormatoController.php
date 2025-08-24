@@ -112,6 +112,10 @@ class FormatoController extends Controller
 
     private function generarFormatoWord($alumno)
     {
+        if (!class_exists(\ZipArchive::class)) {
+            \Log::error('Extensión ZIP no disponible en runtime');
+            abort(500, 'Extensión ZIP no disponible en el servidor');
+        }
         try {
             // Obtener la plantilla desde la base de datos
             $formato = DB::table('formatos')
