@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpWord\TemplateProcessor;
 
 class FormatosController extends Controller
 {
@@ -114,5 +117,34 @@ class FormatosController extends Controller
 
         return redirect()->route('dashboard', ['table' => 'formatos'])
                        ->with('success', 'Formatos actualizados exitosamente');
+    }
+
+    public function descargarFormato(int $id)
+    {
+        try {
+            // Ejemplo: pon tu ruta real del .docx (asegúrate que el archivo esté en el repo)
+            $templatePath = resource_path('plantillas/cartas/formato.docx'); // usa /, no \
+
+            if (!file_exists($templatePath)) {
+                Log::error('Template no encontrado', ['path' => $templatePath]);
+                abort(404, 'Template no encontrado');
+            }
+
+            // Genera el documento en memoria (sin escribir a disco)
+            $template = new TemplateProcessor($templatePath);
+            // ... rellena variables ...
+            // $template->setValue('alumno', $alumno->nombre);
+
+            $tmpFile = tempnam(sys_get_temp_dir(), 'docx_');
+            $template->saveAs($tmpFile);
+
+            return response()->download($tmpFile, 'carta.docx')->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            Log::error('Error generando Word', [
+                'msg' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            abort(500, 'Error al generar el documento');
+        }
     }
 }
