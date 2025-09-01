@@ -19,7 +19,35 @@ class FormatoController extends Controller
     public function downloadEditedWord($id, $tipo = 'word')
     {
         try {
-            // Obtener datos completos del alumno con la nueva estructura de relaciones
+            // Verificar extensiones requeridas
+            if (!extension_loaded('zip')) {
+                throw new \Exception('Extensión ZIP no disponible en el servidor');
+            }
+
+            if (!extension_loaded('xml')) {
+                throw new \Exception('Extensión XML no disponible en el servidor');
+            }
+
+            // Verificar que la clase existe
+            if (!class_exists('\PhpOffice\PhpWord\TemplateProcessor')) {
+                throw new \Exception('PhpOffice\PhpWord no está disponible');
+            }
+
+            // Log para debugging
+            \Log::info('Iniciando descarga de documento', [
+                'alumno_id' => $id,
+                'tipo' => $tipo,
+                'memory_limit' => ini_get('memory_limit'),
+                'temp_dir' => sys_get_temp_dir(),
+                'storage_path' => storage_path('app'),
+                'extensions' => [
+                    'zip' => extension_loaded('zip'),
+                    'xml' => extension_loaded('xml'),
+                    'mbstring' => extension_loaded('mbstring')
+                ]
+            ]);
+
+            // Obtener datos completos del alumno
             $alumno = $this->obtenerDatosCompletos($id);
             
             if (!$alumno) {
@@ -37,6 +65,7 @@ class FormatoController extends Controller
                 default:
                     return redirect()->back()->with('error', 'Tipo de formato no válido.');
             }
+            
         } catch (\Exception $e) {
             \Log::error('Error al generar documento: ' . $e->getMessage(), [
                 'alumno_id' => $id,
@@ -129,56 +158,71 @@ class FormatoController extends Controller
     private function generarFormatoWord($alumno)
     {
         try {
-            // Asegurar que los directorios existan
-            $this->ensureStorageDirectories();
-
-            // Obtener la plantilla desde la base de datos
+            // Obtener el formato desde la base de datos
             $formato = DB::table('formatos')->first();
             
             if (!$formato || !$formato->formato_word) {
-                \Log::warning('No se encontró plantilla Word, generando documento básico');
-                return $this->crearDocumentoBasico($alumno);
+                throw new \Exception('No hay plantilla de Word configurada');
             }
 
-            // Crear nombres únicos para archivos temporales
-            $templateFileName = 'temp/template_' . uniqid() . '.docx';
-            $outputFileName = 'temp/output_' . uniqid() . '.docx';
+            // CAMBIO: Usar storage en lugar de sys_get_temp_dir()
+            $tempDir = storage_path('app/temp');
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
 
-            // Guardar la plantilla temporalmente usando Storage
-            Storage::put($templateFileName, $formato->formato_word);
-            $tempTemplatePath = Storage::path($templateFileName);
+            // Crear archivo temporal de la plantilla
+            $templatePath = $tempDir . '/template_' . uniqid() . '.docx';
+            file_put_contents($templatePath, $formato->formato_word);
 
-            $templateProcessor = new TemplateProcessor($tempTemplatePath);
+            // Verificar que el archivo se creó correctamente
+            if (!file_exists($templatePath)) {
+                throw new \Exception('No se pudo crear el archivo temporal de plantilla');
+            }
 
-            // Reemplazar los placeholders
-            $this->reemplazarPlaceholders($templateProcessor, $alumno);
+            // Procesar plantilla
+            $templateProcessor = new TemplateProcessor($templatePath);
 
-            // Generar archivo de salida
-            $outputPath = Storage::path($outputFileName);
+            // Reemplazar variables
+            $templateProcessor->setValue('nombre', $alumno->nombre ?? '');
+            $templateProcessor->setValue('apellido_p', $alumno->apellido_p ?? '');
+            $templateProcessor->setValue('apellido_m', $alumno->apellido_m ?? '');
+            $templateProcessor->setValue('correo', $alumno->correo_institucional ?? '');
+            $templateProcessor->setValue('telefono', $alumno->telefono ?? '');
+            $templateProcessor->setValue('carrera', $alumno->carrera ?? '');
+            $templateProcessor->setValue('semestre', $alumno->semestre ?? '');
+            $templateProcessor->setValue('grupo', $alumno->grupo ?? '');
+            $templateProcessor->setValue('institucion', $alumno->institucion ?? '');
+            $templateProcessor->setValue('programa', $alumno->nombre_programa ?? '');
+            $templateProcessor->setValue('encargado', $alumno->encargado_nombre ?? '');
+            $templateProcessor->setValue('fecha', now()->format('d/m/Y'));
+
+            // Crear archivo de salida
+            $outputPath = $tempDir . '/carta_' . $alumno->id . '_' . time() . '.docx';
             $templateProcessor->saveAs($outputPath);
 
-            // Crear nombre del archivo final
-            $filename = "carta_presentacion_{$alumno->numero_control}.docx";
-            
-            // Leer el contenido del archivo y eliminarlo después
-            $fileContent = Storage::get($outputFileName);
-            
-            // Limpiar archivos temporales
-            Storage::delete($templateFileName);
-            Storage::delete($outputFileName);
-            
-            return response($fileContent)
-                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
-                ->header('Content-Length', strlen($fileContent));
+            // Verificar que el archivo de salida se creó
+            if (!file_exists($outputPath)) {
+                throw new \Exception('No se pudo generar el documento final');
+            }
+
+            $filename = 'carta_presentacion_' . $alumno->nombre . '_' . $alumno->apellido_p . '.docx';
+
+            // Limpiar archivo temporal de plantilla
+            if (file_exists($templatePath)) {
+                unlink($templatePath);
+            }
+
+            return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
 
         } catch (\Exception $e) {
-            \Log::error('Error generando formato Word: ' . $e->getMessage(), [
+            \Log::error('Error generando formato Word:', [
+                'alumno_id' => $alumno->id ?? 'N/A',
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
             
-            // Fallback a documento básico
-            return $this->crearDocumentoBasico($alumno);
+            return redirect()->back()->with('error', 'Error al generar el documento: ' . $e->getMessage());
         }
     }
 

@@ -2,7 +2,8 @@
 FROM php:8.2-apache
 
 # Extensiones necesarias
-RUN apt-get update && apt-get install -y libzip-dev unzip \
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
     && docker-php-ext-install zip pdo pdo_mysql
 
 # Habilitar Apache y servir public/
