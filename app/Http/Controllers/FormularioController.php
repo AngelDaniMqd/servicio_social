@@ -872,7 +872,7 @@ if ($request->programa_instituciones_id === 'otra') {
     if (empty($request->programa_otra_institucion)) {
         throw new \Exception('Debe especificar el nombre de la institución');
     }
-    $institucionId = 1; // ID por defecto para "otras"
+    $institucionId = 12; // ID por defecto para "otras"
     $otraInstitucion = trim($request->programa_otra_institucion);
 } else {
     $otraInstitucion = null;
@@ -894,8 +894,8 @@ if ($request->programa_tipos_programa_id === '0') {
 
 $programaData = [
     'alumno_id' => $id,
-    'instituciones_id' => $institucionId,
-    'otra_institucion' => $otraInstitucion,
+    'instituciones_id' => $institucionId, // Ahora será 12 si es "otra"
+    'otra_institucion' => $otraInstitucion, // El nombre de la institución se guarda aquí
     'nombre_programa' => trim($request->programa_nombre_programa),
     'encargado_nombre' => trim($request->programa_encargado_nombre),
     'titulos_id' => $request->programa_titulos_id,

@@ -89,6 +89,7 @@ class FormatoController extends Controller
                     // Información de servicio social
                     'instituciones.nombre as institucion_nombre',
                     'programa_servicio_social.otra_institucion',
+                    'programa_servicio_social.instituciones_id', // Agregar este campo
                     'programa_servicio_social.nombre_programa',
                     'programa_servicio_social.encargado_nombre',
                     'titulos.titulo',
@@ -97,7 +98,9 @@ class FormatoController extends Controller
                     'programa_servicio_social.telefono_institucion',
                     'programa_servicio_social.fecha_inicio',
                     'programa_servicio_social.fecha_final',
-                    'tipos_programa.tipo as tipo_programa'
+                    'tipos_programa.tipo as tipo_programa',
+                    'programa_servicio_social.tipos_programa_id', // Agregar este campo
+                    'programa_servicio_social.otro_programa' // Agregar este campo
                 ])
                 ->where('alumno.id', $id)
                 ->first();
@@ -111,184 +114,137 @@ class FormatoController extends Controller
     {
         try {
             // Obtener la plantilla desde la base de datos
-            $formato = DB::table('formatos')
-                ->select('formato_word')
-                ->where('usuario_id', 1) // O el usuario que corresponda
-                ->first();
-
+            $formato = DB::table('formatos')->first();
+            
             if (!$formato || !$formato->formato_word) {
-                return $this->crearDocumentoBasico($alumno);
+                throw new \Exception('No se encontró la plantilla de formato Word');
             }
 
-            // Crear archivo temporal con la plantilla desde la BD
-            $tempTemplate = tempnam(sys_get_temp_dir(), 'template_') . '.docx';
-            file_put_contents($tempTemplate, $formato->formato_word);
+            // Crear archivo temporal en el directorio de almacenamiento de Laravel
+            $tempTemplatePath = storage_path('app/temp_template_' . uniqid() . '.docx');
+            file_put_contents($tempTemplatePath, $formato->formato_word);
 
-            // Crear el TemplateProcessor
-            $templateProcessor = new TemplateProcessor($tempTemplate);
+            $templateProcessor = new TemplateProcessor($tempTemplatePath);
 
-            // Reemplazar los placeholders con los datos del alumno
-            $templateProcessor->setValue('nombre', $alumno->nombre ?? '');
-            $templateProcessor->setValue('apellido_p', $alumno->apellido_p ?? '');
-            $templateProcessor->setValue('apellido_m', $alumno->apellido_m ?? '');
-            $templateProcessor->setValue('correo_institucional', $alumno->correo_institucional ?? '');
-            $templateProcessor->setValue('telefono', $alumno->telefono ?? '');
-            $templateProcessor->setValue('numero_control', $alumno->numero_control ?? '');
-            $templateProcessor->setValue('carrera', $alumno->carrera_nombre ?? '');
-            $templateProcessor->setValue('semestre', $alumno->semestre_nombre ?? '');
-            $templateProcessor->setValue('grupo', $alumno->letra ?? '');
-            $templateProcessor->setValue('modalidad', $alumno->modalidad_nombre ?? '');
-            $templateProcessor->setValue('institucion', $alumno->institucion_nombre ?? '');
-            $templateProcessor->setValue('nombre_programa', $alumno->nombre_programa ?? '');
-            $templateProcessor->setValue('encargado', $alumno->encargado_nombre ?? '');
-            $templateProcessor->setValue('encargado_nombre', $alumno->encargado_nombre ?? '');
-            $templateProcessor->setValue('titulo', $alumno->titulo ?? '');
-            $templateProcessor->setValue('puesto_encargado', $alumno->puesto_encargado ?? '');
-            $templateProcessor->setValue('fecha_inicio', $alumno->fecha_inicio ?? '');
-            $templateProcessor->setValue('fecha_final', $alumno->fecha_final ?? '');
-            $templateProcessor->setValue('localidad', $alumno->localidad ?? '');
-            $templateProcessor->setValue('municipio', $alumno->municipio_nombre ?? '');
-            $templateProcessor->setValue('estado', $alumno->estado_nombre ?? '');
-            $templateProcessor->setValue('cp', $alumno->cp ?? '');
-            $templateProcessor->setValue('meses_servicio', $alumno->meses_servicio ?? '');
-            $templateProcessor->setValue('metodo', $alumno->metodo ?? '');
-            $templateProcessor->setValue('tipo_programa', $alumno->tipo_programa ?? '');
-            $templateProcessor->setValue('telefono_institucion', $alumno->telefono_institucion ?? '');
-            $templateProcessor->setValue('sexo_tipo', $alumno->sexo_tipo ?? '');
-            $templateProcessor->setValue('edades', $alumno->edades ?? '');
+            // Reemplazar los placeholders
+            $this->reemplazarPlaceholders($templateProcessor, $alumno);
 
-            // Guardar el documento generado
-            $tempFile = tempnam(sys_get_temp_dir(), 'formato_') . '.docx';
-            $templateProcessor->saveAs($tempFile);
+            // Usar el directorio de almacenamiento de Laravel en lugar del sistema
+            $outputPath = storage_path('app/temp_output_' . uniqid() . '.docx');
+            $templateProcessor->saveAs($outputPath);
 
             // Limpiar archivo temporal de plantilla
-            unlink($tempTemplate);
+            if (file_exists($tempTemplatePath)) {
+                unlink($tempTemplatePath);
+            }
 
-            // Enviar el archivo para descargar
-            return response()->download($tempFile, 'carta_presentacion_' . $alumno->id . '.docx')
-                           ->deleteFileAfterSend(true);
-
+            $filename = "carta_presentacion_{$alumno->numero_control}.docx";
+            
+            return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Error al generar el documento Word: ' . $e->getMessage(),
-                'alumno' => $alumno
-            ]);
+            \Log::error('Error generando formato Word: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al generar el documento'], 500);
         }
     }
 
     private function generarReporte($alumno)
     {
         try {
-            // Obtener la plantilla de reporte desde la base de datos
-            $formato = DB::table('formatos')
-                ->select('formato_reporte')
-                ->where('usuario_id', 1)
-                ->first();
-
+            $formato = DB::table('formatos')->first();
+            
             if (!$formato || !$formato->formato_reporte) {
-                return $this->crearReporteBasico($alumno);
+                throw new \Exception('No se encontró la plantilla de reporte');
             }
 
-            // Crear archivo temporal con la plantilla desde la BD
-            $tempTemplate = tempnam(sys_get_temp_dir(), 'reporte_template_') . '.docx';
-            file_put_contents($tempTemplate, $formato->formato_reporte);
+            // Usar storage_path en lugar de sys_get_temp_dir
+            $tempTemplatePath = storage_path('app/temp_template_reporte_' . uniqid() . '.docx');
+            file_put_contents($tempTemplatePath, $formato->formato_reporte);
 
-            // Crear el TemplateProcessor
-            $templateProcessor = new TemplateProcessor($tempTemplate);
-
-            // Reemplazar placeholders (similar al método anterior)
+            $templateProcessor = new TemplateProcessor($tempTemplatePath);
             $this->reemplazarPlaceholders($templateProcessor, $alumno);
 
-            // Guardar el documento generado
-            $tempFile = tempnam(sys_get_temp_dir(), 'reporte_') . '.docx';
-            $templateProcessor->saveAs($tempFile);
+            $outputPath = storage_path('app/temp_output_reporte_' . uniqid() . '.docx');
+            $templateProcessor->saveAs($outputPath);
 
             // Limpiar archivo temporal de plantilla
-            unlink($tempTemplate);
+            if (file_exists($tempTemplatePath)) {
+                unlink($tempTemplatePath);
+            }
 
-            return response()->download($tempFile, 'reporte_mensual_' . $alumno->id . '.docx')
-                           ->deleteFileAfterSend(true);
-
+            $filename = "reporte_mensual_{$alumno->numero_control}.docx";
+            
+            return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Error al generar el reporte: ' . $e->getMessage(),
-                'alumno' => $alumno
-            ]);
+            \Log::error('Error generando reporte: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al generar el documento'], 500);
         }
     }
 
     private function generarReporteFinal($alumno)
     {
         try {
-            // Obtener la plantilla de reporte final desde la base de datos
-            $formato = DB::table('formatos')
-                ->select('formato_reporte_final')
-                ->where('usuario_id', 1)
-                ->first();
-
+            $formato = DB::table('formatos')->first();
+            
             if (!$formato || !$formato->formato_reporte_final) {
-                return $this->crearReporteFinalBasico($alumno);
+                throw new \Exception('No se encontró la plantilla de reporte final');
             }
 
-            // Crear archivo temporal con la plantilla desde la BD
-            $tempTemplate = tempnam(sys_get_temp_dir(), 'reporte_final_template_') . '.docx';
-            file_put_contents($tempTemplate, $formato->formato_reporte_final);
+            $tempTemplatePath = storage_path('app/temp_template_final_' . uniqid() . '.docx');
+            file_put_contents($tempTemplatePath, $formato->formato_reporte_final);
 
-            // Crear el TemplateProcessor
-            $templateProcessor = new TemplateProcessor($tempTemplate);
-
-            // Reemplazar placeholders
+            $templateProcessor = new TemplateProcessor($tempTemplatePath);
             $this->reemplazarPlaceholders($templateProcessor, $alumno);
 
-            // Guardar el documento generado
-            $tempFile = tempnam(sys_get_temp_dir(), 'reporte_final_') . '.docx';
-            $templateProcessor->saveAs($tempFile);
+            $outputPath = storage_path('app/temp_output_final_' . uniqid() . '.docx');
+            $templateProcessor->saveAs($outputPath);
 
             // Limpiar archivo temporal de plantilla
-            unlink($tempTemplate);
+            if (file_exists($tempTemplatePath)) {
+                unlink($tempTemplatePath);
+            }
 
-            return response()->download($tempFile, 'reporte_final_' . $alumno->id . '.docx')
-                           ->deleteFileAfterSend(true);
-
+            $filename = "reporte_final_{$alumno->numero_control}.docx";
+            
+            return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Error al generar el reporte final: ' . $e->getMessage(),
-                'alumno' => $alumno
-            ]);
+            \Log::error('Error generando reporte final: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al generar el documento'], 500);
         }
     }
 
     private function reemplazarPlaceholders($templateProcessor, $alumno)
     {
-        // Método auxiliar para reemplazar todos los placeholders
+        // Datos del alumno
         $templateProcessor->setValue('nombre', $alumno->nombre ?? '');
         $templateProcessor->setValue('apellido_p', $alumno->apellido_p ?? '');
         $templateProcessor->setValue('apellido_m', $alumno->apellido_m ?? '');
-        $templateProcessor->setValue('correo_institucional', $alumno->correo_institucional ?? '');
-        $templateProcessor->setValue('telefono', $alumno->telefono ?? '');
         $templateProcessor->setValue('numero_control', $alumno->numero_control ?? '');
+        
+        // Institución: usar otra_institucion si instituciones_id es 12, sino usar institucion_nombre
+        if ($alumno->instituciones_id == 12 && !empty($alumno->otra_institucion)) {
+            $templateProcessor->setValue('institucion', $alumno->otra_institucion);
+        } else {
+            $templateProcessor->setValue('institucion', $alumno->institucion_nombre ?? '');
+        }
+        
+        // Programa: usar otro_programa si tipos_programa_id es 0, sino usar tipo_programa
+        if ($alumno->tipos_programa_id == 0 && !empty($alumno->otro_programa)) {
+            $templateProcessor->setValue('tipo_programa', $alumno->otro_programa);
+        } else {
+            $templateProcessor->setValue('tipo_programa', $alumno->tipo_programa ?? '');
+        }
+        
+        $templateProcessor->setValue('nombre_programa', $alumno->nombre_programa ?? '');
+        $templateProcessor->setValue('encargado_nombre', $alumno->encargado_nombre ?? '');
+        $templateProcessor->setValue('puesto_encargado', $alumno->puesto_encargado ?? '');
+        $templateProcessor->setValue('titulo', $alumno->titulo ?? '');
+        $templateProcessor->setValue('telefono_institucion', $alumno->telefono_institucion ?? '');
+        $templateProcessor->setValue('metodo', $alumno->metodo ?? '');
+        $templateProcessor->setValue('fecha_inicio', $alumno->fecha_inicio ?? '');
+        $templateProcessor->setValue('fecha_final', $alumno->fecha_final ?? '');
         $templateProcessor->setValue('carrera', $alumno->carrera_nombre ?? '');
         $templateProcessor->setValue('semestre', $alumno->semestre_nombre ?? '');
         $templateProcessor->setValue('grupo', $alumno->letra ?? '');
-        $templateProcessor->setValue('modalidad', $alumno->modalidad_nombre ?? '');
-        $templateProcessor->setValue('institucion', $alumno->institucion_nombre ?? '');
-        $templateProcessor->setValue('nombre_programa', $alumno->nombre_programa ?? '');
-        $templateProcessor->setValue('encargado', $alumno->encargado_nombre ?? '');
-        $templateProcessor->setValue('encargado_nombre', $alumno->encargado_nombre ?? '');
-        $templateProcessor->setValue('titulo', $alumno->titulo ?? '');
-        $templateProcessor->setValue('puesto_encargado', $alumno->puesto_encargado ?? '');
-        $templateProcessor->setValue('fecha_inicio', $alumno->fecha_inicio ?? '');
-        $templateProcessor->setValue('fecha_final', $alumno->fecha_final ?? '');
-        $templateProcessor->setValue('localidad', $alumno->localidad ?? '');
-        $templateProcessor->setValue('municipio', $alumno->municipio_nombre ?? '');
-        $templateProcessor->setValue('estado', $alumno->estado_nombre ?? '');
-        $templateProcessor->setValue('cp', $alumno->cp ?? '');
-        $templateProcessor->setValue('meses_servicio', $alumno->meses_servicio ?? '');
-        $templateProcessor->setValue('metodo', $alumno->metodo ?? '');
-        $templateProcessor->setValue('tipo_programa', $alumno->tipo_programa ?? '');
-        $templateProcessor->setValue('telefono_institucion', $alumno->telefono_institucion ?? '');
-        $templateProcessor->setValue('sexo_tipo', $alumno->sexo_tipo ?? '');
-        $templateProcessor->setValue('edades', $alumno->edades ?? '');
     }
 
     private function crearDocumentoBasico($alumno)
