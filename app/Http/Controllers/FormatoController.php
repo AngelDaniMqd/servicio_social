@@ -1,9 +1,7 @@
 <?php
 namespace App\Http\Controllers;
-
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB; // <-- usar DB
+use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 class FormatoController extends Controller
@@ -17,25 +15,29 @@ class FormatoController extends Controller
         return view('alumnos_descargar', ['alumnos' => $alumnos]);
     }
 
-    public function downloadEditedWord(int $id, Request $request)
+    public function downloadEditedWord($id, $tipo = 'word')
     {
-        $tipo = $request->query('tipo', 'word');
+        try {
+            // Obtener datos completos del alumno con la nueva estructura de relaciones
+            $alumno = $this->obtenerDatosCompletos($id);
+            
+            if (!$alumno) {
+                return redirect()->back()->with('error', 'Alumno no encontrado.');
+            }
 
-        // Obtener datos completos del alumno
-        $alumno = $this->obtenerDatosCompletos($id);
-        if (!$alumno) {
-            abort(404, 'Alumno no encontrado');
-        }
-
-        // Despachar al generador correcto (estos métodos ya leen el BLOB desde la BD)
-        switch ($tipo) {
-            case 'reporte':
-                return $this->generarReporte($alumno);
-            case 'reporte_final':
-                return $this->generarReporteFinal($alumno);
-            case 'word':
-            default:
-                return $this->generarFormatoWord($alumno);
+            // Procesar según el tipo de descarga
+            switch ($tipo) {
+                case 'word':
+                    return $this->generarFormatoWord($alumno);
+                case 'reporte':
+                    return $this->generarReporte($alumno);
+                case 'reporte_final':
+                    return $this->generarReporteFinal($alumno);
+                default:
+                    return redirect()->back()->with('error', 'Tipo de formato no válido.');
+            }
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al generar el documento: ' . $e->getMessage());
         }
     }
 
@@ -107,10 +109,6 @@ class FormatoController extends Controller
 
     private function generarFormatoWord($alumno)
     {
-        if (!class_exists(\ZipArchive::class)) {
-            \Log::error('Extensión ZIP no disponible en runtime');
-            abort(500, 'Extensión ZIP no disponible en el servidor');
-        }
         try {
             // Obtener la plantilla desde la base de datos
             $formato = DB::table('formatos')
@@ -376,119 +374,5 @@ class FormatoController extends Controller
             'tipo' => 'reporte_final_basico',
             'data' => $alumno
         ]);
-    }
-
-    public function finalizarFormulario(Request $request)
-    {
-        try {
-            // Validar datos del request
-            $request->validate([
-                'instituciones_id' => 'required',
-                'telefono_institucion' => 'required|string|size:10',
-                'nombre_programa' => 'required|string|max:100',
-                'tipos_programa_id' => 'required',
-                'metodo_servicio_id' => 'required',
-                'fecha_inicio' => 'required|date',
-                'fecha_final' => 'required|date|after:fecha_inicio',
-                'titulos_id' => 'required',
-                'encargado_nombre' => 'required|string|max:100',
-                'puesto_encargado' => 'required|string|max:100',
-            ]);
-
-            // Obtener datos de la sesión
-            $alumnoId = Session::get('alumno_id');
-            
-            if (!$alumnoId) {
-                return redirect('/datosalumno')->with('error', 'Sesión expirada. Inicia el registro nuevamente.');
-            }
-
-            // Manejar institución "otra"
-            $institucionId = $request->instituciones_id;
-            if ($request->instituciones_id === 'otra' && $request->otra_institucion) {
-                // Insertar nueva institución
-                $institucionId = DB::table('instituciones')->insertGetId([
-                    'nombre' => $request->otra_institucion,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-            }
-
-            // Manejar tipo de programa "otro"
-            $tipoProgramaId = $request->tipos_programa_id;
-            if ($request->tipos_programa_id === '0' && $request->otro_programa) {
-                // Insertar nuevo tipo de programa
-                $tipoProgramaId = DB::table('tipos_programa')->insertGetId([
-                    'tipo' => $request->otro_programa,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-            }
-
-            // Insertar programa de servicio social
-            $programaId = DB::table('programa_servicio_social')->insertGetId([
-                'alumno_id' => $alumnoId,
-                'instituciones_id' => $institucionId,
-                'titulos_id' => $request->titulos_id,
-                'metodo_servicio_id' => $request->metodo_servicio_id,
-                'tipos_programa_id' => $tipoProgramaId,
-                'nombre_programa' => $request->nombre_programa,
-                'encargado_nombre' => $request->encargado_nombre,
-                'puesto_encargado' => $request->puesto_encargado,
-                'telefono_institucion' => $request->telefono_institucion,
-                'fecha_inicio' => $request->fecha_inicio,
-                'fecha_final' => $request->fecha_final,
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-
-            // Obtener información para mostrar en la página de éxito
-            $alumno = DB::table('alumno')->where('id', $alumnoId)->first();
-            $escolaridad = DB::table('escolaridad_alumno')
-                ->leftJoin('carreras', 'escolaridad_alumno.carreras_id', '=', 'carreras.id')
-                ->where('escolaridad_alumno.alumno_id', $alumnoId)
-                ->select('escolaridad_alumno.numero_control', 'carreras.nombre as carrera_nombre')
-                ->first();
-            
-            $institucion = DB::table('instituciones')->where('id', $institucionId)->first();
-
-            // Guardar información en la sesión para la página de éxito
-            Session::put([
-                'registro_exitoso' => true,
-                'alumno_nombre' => $alumno->nombre . ' ' . $alumno->apellido_p . ' ' . $alumno->apellido_m,
-                'numero_control' => $escolaridad->numero_control ?? 'No disponible',
-                'carrera_nombre' => $escolaridad->carrera_nombre ?? 'No disponible',
-                'programa_nombre' => $request->nombre_programa,
-                'institucion_nombre' => $institucion->nombre ?? 'No disponible'
-            ]);
-
-            // CAMBIAR esta línea:
-            return redirect('/registro-exitoso'); 
-
-            // POR una de estas opciones:
-            return redirect('/final'); // Opción simple
-            // O
-            return redirect()->route('registro.exitoso'); // Usando el nombre de la ruta
-
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Error al guardar la información: ' . $e->getMessage());
-        }
-    }
-
-    public function index()
-    {
-        return view('formatos-upload');
-    }
-
-    public function store(Request $request)
-    {
-        // Lógica para guardar formatos
-        try {
-            // Tu lógica aquí
-            return redirect()->route('formatos.upload')->with('success', 'Formato subido correctamente');
-        } catch (\Exception $e) {
-            return back()->with('error', 'Error al subir formato: ' . $e->getMessage());
-        }
     }
 }

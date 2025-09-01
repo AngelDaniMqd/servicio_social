@@ -532,7 +532,26 @@ use Carbon\Carbon;
             @endif
             
             <!-- Tabla de datos -->
-            <div class="overflow-x-auto">
+            @php
+                if ($selectedTable && $rows && method_exists($rows, 'getCollection')) {
+                    $rows->setCollection(
+                        $rows->getCollection()
+                            ->sortByDesc(function ($item) {
+                                if (is_array($item)) {
+                                    return $item['id'] ?? ($item['created_at'] ?? 0);
+                                }
+                                return $item->id ?? ($item->created_at ?? 0);
+                            })
+                            ->values()
+                    );
+                }
+            @endphp
+            
+            <!-- Scroll superior sincronizado -->
+            <div id="top-scroll" class="overflow-x-auto">
+                <div id="top-scroll-content" class="h-4"></div>
+            </div>
+            <div id="bottom-scroll" class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-200">
                         <tr>
@@ -892,6 +911,29 @@ tr:has(.bg-gray-100) {
     border-color: #93C5FD !important;
     color: #1E40AF !important;
 }
+
+/* Scrollbars personalizados (horizontal) */
+#bottom-scroll, #top-scroll {
+  /* Firefox */
+  scrollbar-color: #60a5fa #e5e7eb; /* thumb | track */
+  scrollbar-width: thin;
+}
+/* WebKit (Chrome/Edge/Safari) */
+#bottom-scroll::-webkit-scrollbar,
+#top-scroll::-webkit-scrollbar {
+  height: 10px;              /* barra horizontal */
+  background-color: #e5e7eb; /* track */
+}
+#bottom-scroll::-webkit-scrollbar-thumb,
+#top-scroll::-webkit-scrollbar-thumb {
+  background-color: #60a5fa; /* thumb */
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+}
+#bottom-scroll::-webkit-scrollbar-thumb:hover,
+#top-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #3b82f6;
+}
 </style>
 <script>
 // Variables globales
@@ -1058,7 +1100,7 @@ function openCancelModal(id, table) {
 function closeCancelModal() {
     if (cancelCountdownTimer) {
         clearInterval(cancelCountdownTimer);
-        cancelCountdownTimer = null;
+               cancelCountdownTimer = null;
     }
     
     cancelRecordId = null;
@@ -1279,7 +1321,49 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-});
+    
+    // Scroll superior sincronizado con el contenedor inferior
+    const topScroll = document.getElementById('top-scroll');
+    const topScrollContent = document.getElementById('top-scroll-content');
+    const bottomScroll = document.getElementById('bottom-scroll');
+    const tableEl = bottomScroll ? bottomScroll.querySelector('table') : null;
+
+    function syncWidths() {
+        if (tableEl && topScrollContent) {
+            topScrollContent.style.width = tableEl.scrollWidth + 'px';
+        }
+    }
+
+    if (topScroll && bottomScroll && tableEl && topScrollContent) {
+        // Sincronizar desplazamiento
+        let syncing = false;
+        topScroll.addEventListener('scroll', () => {
+            if (syncing) return;
+            syncing = true;
+            bottomScroll.scrollLeft = topScroll.scrollLeft;
+            syncing = false;
+        });
+        bottomScroll.addEventListener('scroll', () => {
+            if (syncing) return;
+            syncing = true;
+            topScroll.scrollLeft = bottomScroll.scrollLeft;
+            syncing = false;
+        });
+
+        // Ajustar ancho del "dummy" del scroll superior
+        syncWidths();
+        // Observar cambios de tamaño del contenido de la tabla
+        try {
+            const ro = new ResizeObserver(syncWidths);
+            ro.observe(tableEl);
+            window.addEventListener('resize', syncWidths);
+        } catch (e) {
+            // Fallback simple
+            window.addEventListener('resize', syncWidths);
+            setTimeout(syncWidths, 250);
+        }
+    }
+ });
 </script>
 
 <!-- Alpine.js para el popover -->

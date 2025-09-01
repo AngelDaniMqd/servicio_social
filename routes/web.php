@@ -170,10 +170,10 @@ Route::middleware(['admin'])->prefix('admin')->group(function () {
         Route::get('/alumnos-descargar', [AlumnosDescargaController::class, 'index'])->name('alumnos.descargar');
         
         // Gestión de registros
-        Route::get('/record/edit/{table}/{id}', [DatabaseOverviewController::class, 'edit'])
+        Route::get('/record/edit/{table}/{id}', [RecordController::class, 'edit'])
             ->where(['table' => '^[a-zA-Z_]+$', 'id' => '^[0-9]+$'])
             ->name('record.edit');
-        Route::put('/record/update/{table}/{id}', [DatabaseOverviewController::class, 'updateRecord'])
+        Route::put('/record/update/{table}/{id}', [RecordController::class, 'update'])
             ->where(['table' => '^[a-zA-Z_]+$', 'id' => '^[0-9]+$'])
             ->name('record.update');
         Route::delete('/record/delete/{table}/{id}', [DatabaseOverviewController::class, 'delete'])
