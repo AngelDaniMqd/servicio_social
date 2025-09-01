@@ -37,7 +37,12 @@ class DatabaseOverviewController extends Controller
                     });
                 }
             }
-            
+               // Orden global por ID (últimos primero)
+            if ($selectedTable === 'alumno') {
+                $query->orderByDesc('alumno.id');
+            } elseif (Schema::hasColumn($selectedTable, 'id')) {
+                $query->orderByDesc($selectedTable . '.id');
+            }
             // Aplicar paginación con registros configurables
             $perPage = $request->input('per_page', 50); // Default 50
             $perPage = in_array($perPage, [25, 50, 100, 250]) ? $perPage : 50; // Validar valores permitidos

@@ -176,9 +176,10 @@
                                 <!-- Correo Institucional -->
                                 <div class="sm:col-span-2 lg:col-span-1">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Correo Institucional *</label>
-                                    <input type="email" name="correo_institucional" value="{{ old('correo_institucional', $alumno->correo_institucional) }}" 
+                                    <input type="email" name="correo_institucional" 
+                                           value="{{ old('correo_institucional', $alumno->correo_institucional) }}" 
                                            class="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm" 
-                                           required pattern=".*@cbta256\.edu\.mx$" title="Debe terminar en @cbta256.edu.mx">
+                                           required>
                                     <p class="text-xs text-gray-500 mt-1">Debe terminar en @cbta256.edu.mx</p>
                                 </div>
 
@@ -617,18 +618,35 @@
             let firstInvalidField = null;
 
             requiredFields.forEach(field => {
-                if (!field.value.trim()) {
-                    markFieldAsInvalid(field, 'Este campo es obligatorio');
-                    isValid = false;
-                    if (!firstInvalidField) firstInvalidField = field;
+                // Validación especial para correo
+                if (field.name === 'correo_institucional') {
+                    const email = field.value.trim();
+                    if (!email) {
+                        markFieldAsInvalid(field, 'Este campo es obligatorio');
+                        isValid = false;
+                        if (!firstInvalidField) firstInvalidField = field;
+                    } else if (!email.endsWith('@cbta256.edu.mx')) {
+                        markFieldAsInvalid(field, 'El correo debe terminar en @cbta256.edu.mx');
+                        isValid = false;
+                        if (!firstInvalidField) firstInvalidField = field;
+                    } else {
+                        markFieldAsValid(field);
+                    }
                 } else {
-                    markFieldAsValid(field);
+                    // Validación normal para otros campos
+                    if (!field.value.trim()) {
+                        markFieldAsInvalid(field, 'Este campo es obligatorio');
+                        isValid = false;
+                        if (!firstInvalidField) firstInvalidField = field;
+                    } else {
+                        markFieldAsValid(field);
+                    }
                 }
             });
 
             if (!isValid && firstInvalidField) {
                 firstInvalidField.focus();
-                showError('Por favor complete todos los campos obligatorios');
+                showError('Por favor complete todos los campos correctamente');
             }
 
             return isValid;
@@ -765,34 +783,64 @@
                 }
             }
 
-            // Validación final del formulario
+            // Validación mejorada del formulario
             $('#editAlumnoForm').on('submit', function(e) {
                 console.log('=== ENVIANDO FORMULARIO ===');
+                
+                // Validar correo antes del envío
+                const correo = $('input[name="correo_institucional"]').val().trim();
+                if (correo && !correo.endsWith('@cbta256.edu.mx')) {
+                    e.preventDefault();
+                    
+                    // Ir al tab de datos personales
+                    currentTab = 0;
+                    showTab(currentTab);
+                    
+                    // Enfocar y marcar el campo
+                    const correoField = $('input[name="correo_institucional"]')[0];
+                    markFieldAsInvalid(correoField, 'El correo debe terminar en @cbta256.edu.mx');
+                    correoField.focus();
+                    
+                    showError('Por favor corrija el formato del correo institucional');
+                    return false;
+                }
                 
                 // Validar todos los campos
                 let isValid = true;
                 let firstInvalidField = null;
+                let invalidTabIndex = -1;
 
-                $(this).find('input[required], select[required]').each(function() {
-                    if (!this.value.trim()) {
-                        markFieldAsInvalid(this, 'Este campo es obligatorio');
-                        isValid = false;
-                        if (!firstInvalidField) firstInvalidField = this;
-                    }
+                // Verificar cada tab
+                tabs.forEach((tabName, tabIndex) => {
+                    const tabElement = document.getElementById(tabName + '-tab');
+                    const requiredFields = tabElement.querySelectorAll('input[required], select[required]');
+                    
+                    requiredFields.forEach(field => {
+                        if (!field.value.trim()) {
+                            markFieldAsInvalid(field, 'Este campo es obligatorio');
+                            isValid = false;
+                            if (firstInvalidField === null) {
+                                firstInvalidField = field;
+                                invalidTabIndex = tabIndex;
+                            }
+                        }
+                    });
                 });
 
                 if (!isValid) {
                     e.preventDefault();
-                    if (firstInvalidField) {
-                        // Ir al tab que contiene el campo inválido
-                        const invalidTab = $(firstInvalidField).closest('.tab-content').attr('id').replace('-tab', '');
-                        const tabIndex = tabs.indexOf(invalidTab);
-                        if (tabIndex !== -1) {
-                            currentTab = tabIndex;
-                            showTab(currentTab);
-                        }
-                        firstInvalidField.focus();
+                    
+                    if (invalidTabIndex !== -1) {
+                        currentTab = invalidTabIndex;
+                        showTab(currentTab);
                     }
+                    
+                    if (firstInvalidField) {
+                        setTimeout(() => {
+                            firstInvalidField.focus();
+                        }, 100);
+                    }
+                    
                     showError('Por favor complete todos los campos obligatorios');
                     return false;
                 }
