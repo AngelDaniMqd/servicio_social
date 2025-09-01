@@ -59,7 +59,7 @@
 
     <!-- Formulario principal -->
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <form method="POST" action="{{ route('record.update', ['table' => $selectedTable, 'id' => $record->id]) }}" class="space-y-6">
+        <form id="editForm" method="POST" action="{{ route('record.update', ['table' => $selectedTable, 'id' => $record->id]) }}" class="space-y-6">
             @csrf
             @method('PUT')
             
@@ -101,51 +101,36 @@
                                 <!-- Nombre -->
                                 <div>
                                     <label for="nombre" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Nombre(s) <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="text" name="nombre" id="nombre" value="{{ old('nombre', $record->nombre ?? '') }}" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                           placeholder="Nombre completo">
+                                    <input type="text" name="nombre" id="nombre" value="{{ old('nombre', $record->nombre ?? '') }}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                 </div>
 
                                 <!-- Apellido Paterno -->
                                 <div>
                                     <label for="apellido_p" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Apellido Paterno <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="text" name="apellido_p" id="apellido_p" value="{{ old('apellido_p', $record->apellido_p ?? '') }}" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                           placeholder="Apellido paterno">
+                                    <input type="text" name="apellido_p" id="apellido_p" value="{{ old('apellido_p', $record->apellido_p ?? '') }}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                 </div>
 
                                 <!-- Apellido Materno -->
                                 <div>
                                     <label for="apellido_m" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Apellido Materno <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="text" name="apellido_m" id="apellido_m" value="{{ old('apellido_m', $record->apellido_m ?? '') }}" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                           placeholder="Apellido materno">
+                                    <input type="text" name="apellido_m" id="apellido_m" value="{{ old('apellido_m', $record->apellido_m ?? '') }}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                 </div>
 
                                 <!-- Correo Institucional -->
                                 <div>
                                     <label for="correo_institucional" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Correo Institucional <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="email" name="correo_institucional" id="correo_institucional" value="{{ old('correo_institucional', $record->correo_institucional ?? '') }}" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                           placeholder="correo@cbta256.edu.mx">
+                                    <input type="email" name="correo_institucional" id="correo_institucional" value="{{ old('correo_institucional', $record->correo_institucional ?? '') }}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                 </div>
 
                                 <!-- Teléfono -->
                                 <div>
                                     <label for="telefono" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Teléfono <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="tel" name="telefono" id="telefono" value="{{ old('telefono', $record->telefono ?? '') }}" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                           placeholder="4271234567" maxlength="10">
+                                    <input type="tel" name="telefono" id="telefono" value="{{ old('telefono', $record->telefono ?? '') }}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" inputmode="numeric" pattern="[0-9]{10}">
                                 </div>
 
                                 <!-- Código Postal -->
@@ -154,23 +139,18 @@
                                 @endphp
                                 <div>
                                     <label for="ubicacion_cp" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Código Postal <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="text" name="ubicacion_cp" id="ubicacion_cp" value="{{ old('ubicacion_cp', $ubicacion->cp ?? '') }}" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                           placeholder="12345" maxlength="5">
+                                    <input type="text" name="ubicacion_cp" id="ubicacion_cp" value="{{ old('ubicacion_cp', $ubicacion->cp ?? '') }}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" inputmode="numeric" pattern="[0-9]{5}">
                                 </div>
 
                                 <!-- Edad -->
                                 <div>
                                     <label for="edad_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Edad <span class="text-red-500">*</span>
                                     </label>
-                                    <select name="edad_id" id="edad_id" required
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                                        <option value="">Seleccione una opción</option>
-                                        @foreach(DB::table('edad')->get() as $edad)
-                                            <option value="{{ $edad->id }}" {{ (old('edad_id', $record->edad_id ?? '') == $edad->id) ? 'selected' : '' }}>
+                                    <select name="edad_id" id="edad_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Seleccione una edad</option>
+                                        @foreach(DB::table('edad')->orderBy('edades')->get() as $edad)
+                                            <option value="{{ $edad->id }}" {{ (string)old('edad_id', $record->edad_id ?? '') === (string)$edad->id ? 'selected' : '' }}>
                                                 {{ $edad->edades }}
                                             </option>
                                         @endforeach
@@ -180,13 +160,11 @@
                                 <!-- Sexo -->
                                 <div>
                                     <label for="sexo_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Sexo <span class="text-red-500">*</span>
                                     </label>
-                                    <select name="sexo_id" id="sexo_id" required
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                                        <option value="">Seleccione una opción</option>
-                                        @foreach(DB::table('sexo')->get() as $sexo)
-                                            <option value="{{ $sexo->id }}" {{ (old('sexo_id', $record->sexo_id ?? '') == $sexo->id) ? 'selected' : '' }}>
+                                    <select name="sexo_id" id="sexo_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Seleccione sexo</option>
+                                        @foreach(DB::table('sexo')->orderBy('tipo')->get() as $sexo)
+                                            <option value="{{ $sexo->id }}" {{ (string)old('sexo_id', $record->sexo_id ?? '') === (string)$sexo->id ? 'selected' : '' }}>
                                                 {{ $sexo->tipo }}
                                             </option>
                                         @endforeach
@@ -195,14 +173,12 @@
 
                                 <!-- Rol -->
                                 <div>
-                                    <label for="rol_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Rol <span class="text-red-500">*</span>
+                                    <label for="rol_id" class="block text_sm font-medium text-gray-700 mb-2">
                                     </label>
-                                    <select name="rol_id" id="rol_id" required
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                                        <option value="">Seleccione una opción</option>
-                                        @foreach(DB::table('rol')->get() as $rol)
-                                            <option value="{{ $rol->id }}" {{ (old('rol_id', $record->rol_id ?? '') == $rol->id) ? 'selected' : '' }}>
+                                    <select name="rol_id" id="rol_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Seleccione rol</option>
+                                        @foreach(DB::table('rol')->orderBy('tipo')->get() as $rol)
+                                            <option value="{{ $rol->id }}" {{ (string)old('rol_id', $record->rol_id ?? '') === (string)$rol->id ? 'selected' : '' }}>
                                                 {{ $rol->tipo }}
                                             </option>
                                         @endforeach
@@ -862,9 +838,8 @@
                    class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
                     Cancelar
                 </a>
-                <button type="submit" 
-                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    Actualizar Registro
+                <button id="submitBtn" type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span id="submitText">Actualizar Registro</span>
                 </button>
             </div>
         </form>
@@ -994,6 +969,9 @@ $(document).ready(function() {
 document.addEventListener('DOMContentLoaded', function() {
     const fechaFinalInput = document.getElementById('fecha_final');
     const statusSelect = document.getElementById('status_id');
+    if (!fechaFinalInput || !statusSelect) {
+        return; // No ejecutar esta lógica si no estamos editando programa_servicio_social
+    }
     const statusContainer = statusSelect.parentElement;
     
     function validarFechaYStatus() {

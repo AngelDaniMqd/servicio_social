@@ -96,7 +96,7 @@
                                         {{ $inst->nombre }}
                                     </option>
                                 @endforeach
-                                <option value="otra">Otra institución</option>
+                                <option value="12" {{ (old('instituciones_id', $datosProgramaGuardados['instituciones_id'] ?? '') == '12') ? 'selected' : '' }}>Otra institución</option>
                             </select>
                             <div class="error-message hidden text-red-500 text-sm" id="instituciones_id-error"></div>
                         </div>
@@ -167,13 +167,13 @@
                                 </label>
                                 <select name="tipos_programa_id" id="tipos_programa_id" required 
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base">
-                                    <option value="" disabled {{ !old('tipos_programa_id', $datosProgramaGuardados['tipos_programa_id'] ?? '') ? 'selected' : '' }}>Selecciona un tipo</option>
+                                    <option value="" disabled selected>Selecciona un tipo de programa</option>
                                     @foreach($tipos as $tipo)
                                         <option value="{{ $tipo->id }}" {{ (old('tipos_programa_id', $datosProgramaGuardados['tipos_programa_id'] ?? '') == $tipo->id) ? 'selected' : '' }}>
                                             {{ $tipo->tipo }}
                                         </option>
                                     @endforeach
-                                    <option value="0" {{ (old('tipos_programa_id', $datosProgramaGuardados['tipos_programa_id'] ?? '') == '0') ? 'selected' : '' }}>Otro</option>
+                                    <option value="7" {{ (old('tipos_programa_id', $datosProgramaGuardados['tipos_programa_id'] ?? '') == '7') ? 'selected' : '' }}>Otro</option>
                                 </select>
                                 <div class="error-message hidden text-red-500 text-sm" id="tipos_programa_id-error"></div>
                             </div>
@@ -202,7 +202,7 @@
                                 Especifique el tipo de programa <span class="text-red-500">*</span>
                             </label>
                             <input type="text" name="otro_programa" id="otro_programa" 
-                                   maxlength="100" placeholder="Nombre del tipo de programa"
+                                   maxlength="100" placeholder="Ej. Programa educativo especial"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm sm:text-base"
                                    value="{{ old('otro_programa', $datosProgramaGuardados['otro_programa'] ?? '') }}">
                             <div class="error-message hidden text-red-500 text-sm" id="otro_programa-error"></div>
@@ -398,7 +398,7 @@
             const otraInstInput = document.getElementById('otra_institucion');
             
             instSelect.addEventListener('change', function() {
-                if (this.value === 'otra') {
+                if (this.value === '12') { // Cambiar de 'otra' a '12'
                     otraInstDiv.classList.remove('hidden');
                     otraInstInput.setAttribute('required', 'required');
                 } else {
@@ -416,7 +416,7 @@
             const otroProgInput = document.getElementById('otro_programa');
             
             tipoSelect.addEventListener('change', function() {
-                if (this.value === '0') {
+                if (this.value === '7') {
                     otroProgDiv.classList.remove('hidden');
                     otroProgInput.setAttribute('required', 'required');
                 } else {
@@ -431,14 +431,14 @@
             // CARGAR DATOS GUARDADOS AL CARGAR LA PÁGINA
             // Verificar si "Otra institución" debe mostrarse
             const instituciones_id_guardado = "{{ old('instituciones_id', $datosProgramaGuardados['instituciones_id'] ?? '') }}";
-            if (instituciones_id_guardado === 'otra') {
+            if (instituciones_id_guardado === '12') { // Cambiar de 'otra' a '12'
                 document.getElementById('otra_institucion_div').classList.remove('hidden');
                 document.getElementById('otra_institucion').setAttribute('required', 'required');
             }
 
             // Verificar si "Otro programa" debe mostrarse
             const tipos_programa_id_guardado = "{{ old('tipos_programa_id', $datosProgramaGuardados['tipos_programa_id'] ?? '') }}";
-            if (tipos_programa_id_guardado === '0') {
+            if (tipos_programa_id_guardado === '7') {
                 document.getElementById('otro_programa_div').classList.remove('hidden');
                 document.getElementById('otro_programa').setAttribute('required', 'required');
             }
@@ -558,14 +558,14 @@
                 }
 
                 // Validar "Otra Institución" si está visible
-                if (instSelect.value === 'otra' && !otraInstInput.value.trim()) {
+                if (instSelect.value === '12' && !otraInstInput.value.trim()) { // Cambiar de 'otra' a '12'
                     mostrarError(otraInstInput, 'Especifique el nombre de la institución');
                     isValid = false;
                     if (!primerError) primerError = otraInstInput;
                 }
 
                 // Validar "Otro Programa" si está visible
-                if (tipoSelect.value === '0' && !otroProgInput.value.trim()) {
+                if (tipoSelect.value === '7' && !otroProgInput.value.trim()) {
                     mostrarError(otroProgInput, 'Especifique el tipo de programa');
                     isValid = false;
                     if (!primerError) primerError = otroProgInput;

@@ -108,29 +108,30 @@ Route::middleware(['throttle:30,1'])->group(function () {
 // ==================== DOCUMENTOS PÚBLICOS CON VALIDACIÓN DE SESIÓN ====================
 Route::middleware(['throttle:10,1'])->group(function () {
     Route::get('/export/solicitud/{alumnoId}', function($alumnoId) {
+        // Validar que el usuario tenga permiso para descargar este alumno
         if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
-            abort(403, 'No autorizado para descargar este documento');
+            abort(403, 'No tienes permiso para descargar este documento');
         }
         return app(FormatoController::class)->exportSolicitud($alumnoId);
     })->where('alumnoId', '^[0-9]+$')->name('export.solicitud');
     
     Route::get('/export/escolaridad/{alumnoId}', function($alumnoId) {
         if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
-            abort(403, 'No autorizado para descargar este documento');
+            abort(403, 'No tienes permiso para descargar este documento');
         }
         return app(FormatoController::class)->exportEscolaridad($alumnoId);
     })->where('alumnoId', '^[0-9]+$')->name('export.escolaridad');
     
     Route::get('/export/programa/{alumnoId}', function($alumnoId) {
         if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
-            abort(403, 'No autorizado para descargar este documento');
+            abort(403, 'No tienes permiso para descargar este documento');
         }
         return app(FormatoController::class)->exportPrograma($alumnoId);
     })->where('alumnoId', '^[0-9]+$')->name('export.programa');
     
     Route::get('/export/final/{alumnoId}', function($alumnoId) {
         if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
-            abort(403, 'No autorizado para descargar este documento');
+            abort(403, 'No tienes permiso para descargar este documento');
         }
         return app(FormatoController::class)->exportReporteFinal($alumnoId);
     })->where('alumnoId', '^[0-9]+$')->name('export.final');

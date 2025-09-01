@@ -569,33 +569,115 @@
                             Información de {{ ucfirst(str_replace('_', ' ', $selectedTable)) }}
                         </h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            @if(isset($record))
-                                @foreach((array)$record as $field => $value)
-                                    @if($field !== 'id')
-                                        <div>
-                                            <label for="{{ $field }}" class="block text-sm font-medium text-gray-700 mb-2">
-                                                {{ ucfirst(str_replace('_', ' ', $field)) }}
-                                            </label>
-                                            @if($field === 'fecha_registro' || str_contains($field, 'fecha'))
-                                                <input type="date" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}"
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                                            @elseif(str_contains($field, 'telefono') || str_contains($field, 'phone'))
-                                                <input type="tel" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}"
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                                       placeholder="Número de teléfono">
-                                            @elseif(str_contains($field, 'email') || str_contains($field, 'correo'))
-                                                <input type="email" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}"
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                                       placeholder="correo@ejemplo.com">
-                                            @else
-                                                <input type="text" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}"
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                                       placeholder="Ingrese {{ strtolower(str_replace('_', ' ', $field)) }}">
-                                            @endif
-                                        </div>
+                            @php
+                                // Obtener la estructura de la tabla dinámicamente
+                                $columns = collect(DB::select("DESCRIBE {$selectedTable}"))
+                                    ->reject(function($column) {
+                                        return in_array(strtolower($column->Field), ['id', 'created_at', 'updated_at']);
+                                    });
+                            @endphp
+
+                            @foreach($columns as $column)
+                                @php
+                                    $field = $column->Field;
+                                    $type = $column->Type;
+                                    $isRequired = $column->Null === 'NO' && $column->Default === null;
+                                @endphp
+                                
+                                <div>
+                                    <label for="{{ $field }}" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {{ ucfirst(str_replace('_', ' ', $field)) }}
+                                        @if($isRequired) <span class="text-red-500">*</span> @endif
+                                    </label>
+                                    
+                                    @if(str_contains($field, '_id') && $field !== 'numero_control')
+                                        <!-- Campo de relación (select) -->
+                                        @php
+                                            $relatedTable = str_replace('_id', '', $field);
+                                            if ($relatedTable === 'estados') $relatedTable = 'estados';
+                                            elseif ($relatedTable === 'municipios') $relatedTable = 'municipios';
+                                            elseif ($relatedTable === 'carreras') $relatedTable = 'carreras';
+                                            elseif ($relatedTable === 'instituciones') $relatedTable = 'instituciones';
+                                            elseif ($relatedTable === 'tipos_programa') $relatedTable = 'tipos_programa';
+                                            elseif ($relatedTable === 'metodo_servicio') $relatedTable = 'metodo_servicio';
+                                            elseif ($relatedTable === 'titulos') $relatedTable = 'titulos';
+                                            elseif ($relatedTable === 'modalidad') $relatedTable = 'modalidad';
+                                            elseif ($relatedTable === 'semestres') $relatedTable = 'semestres';
+                                            elseif ($relatedTable === 'grupos') $relatedTable = 'grupos';
+                                            elseif ($relatedTable === 'edad') $relatedTable = 'edad';
+                                            elseif ($relatedTable === 'sexo') $relatedTable = 'sexo';
+                                            elseif ($relatedTable === 'rol') $relatedTable = 'rol';
+                                            elseif ($relatedTable === 'status') $relatedTable = 'status';
+                                            
+                                            $relatedData = collect();
+                                            try {
+                                                $relatedData = DB::table($relatedTable)->get();
+                                            } catch (\Exception $e) {
+                                                // Si no existe la tabla relacionada, mostrar input normal
+                                            }
+                                        @endphp
+                                        
+                                        @if($relatedData->count() > 0)
+                                            <select name="{{ $field }}" id="{{ $field }}" {{ $isRequired ? 'required' : '' }}
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                                <option value="">Seleccione una opción</option>
+                                                @foreach($relatedData as $item)
+                                                    @php
+                                                        $displayField = 'nombre';
+                                                        if (isset($item->tipo)) $displayField = 'tipo';
+                                                        elseif (isset($item->titulo)) $displayField = 'titulo';
+                                                        elseif (isset($item->metodo)) $displayField = 'metodo';
+                                                        elseif (isset($item->letra)) $displayField = 'letra';
+                                                        elseif (isset($item->edades)) $displayField = 'edades';
+                                                    @endphp
+                                                    <option value="{{ $item->id }}" {{ old($field) == $item->id ? 'selected' : '' }}>
+                                                        {{ $item->$displayField ?? $item->nombre ?? 'Sin nombre' }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        @else
+                                            <input type="number" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}" {{ $isRequired ? 'required' : '' }}
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                                   placeholder="ID de {{ str_replace('_', ' ', $relatedTable) }}">
+                                        @endif
+                                        
+                                    @elseif(str_contains($field, 'fecha'))
+                                        <!-- Campo de fecha -->
+                                        <input type="date" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}" {{ $isRequired ? 'required' : '' }}
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                    
+                                    @elseif(str_contains($field, 'telefono') || str_contains($field, 'phone'))
+                                        <!-- Campo de teléfono -->
+                                        <input type="tel" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}" {{ $isRequired ? 'required' : '' }}
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                               placeholder="Número de teléfono" maxlength="10" pattern="[0-9]{10}">
+                                    
+                                    @elseif(str_contains($field, 'email') || str_contains($field, 'correo'))
+                                        <!-- Campo de email -->
+                                        <input type="email" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}" {{ $isRequired ? 'required' : '' }}
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                               placeholder="correo@ejemplo.com">
+                                    
+                                    @elseif(str_contains($field, 'numero') || str_contains($field, 'cp') || str_contains($type, 'int'))
+                                        <!-- Campo numérico -->
+                                        <input type="number" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}" {{ $isRequired ? 'required' : '' }}
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                               placeholder="Ingrese {{ strtolower(str_replace('_', ' ', $field)) }}">
+                                    
+                                    @elseif(str_contains($type, 'text') || str_contains($type, 'longtext'))
+                                        <!-- Campo de texto largo -->
+                                        <textarea name="{{ $field }}" id="{{ $field }}" rows="3" {{ $isRequired ? 'required' : '' }}
+                                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                                  placeholder="Ingrese {{ strtolower(str_replace('_', ' ', $field)) }}">{{ old($field) }}</textarea>
+                                    
+                                    @else
+                                        <!-- Campo de texto normal -->
+                                        <input type="text" name="{{ $field }}" id="{{ $field }}" value="{{ old($field) }}" {{ $isRequired ? 'required' : '' }}
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                               placeholder="Ingrese {{ strtolower(str_replace('_', ' ', $field)) }}">
                                     @endif
-                                @endforeach
-                            @endif
+                                </div>
+                            @endforeach
                         </div>
                     </div>
                 @endif

@@ -234,13 +234,14 @@ class FormularioController extends Controller
 
                 // 4. MANEJAR INSTITUCIÓN (del formulario actual) - CORREGIDO
                 $institucionId = $request->instituciones_id;
+                $otraInstitucion = null;
 
-                // Si seleccionó "otra", usar NULL como ID y guardar el nombre en otra_institucion
-                if ($request->instituciones_id === 'otra') {
+                // Si seleccionó "12" (otra institución), guardar el nombre personalizado
+                if ($request->instituciones_id === '12') {
                     if (empty($request->otra_institucion)) {
                         throw new \Exception('Debe especificar el nombre de la institución');
                     }
-                    $institucionId = null; // No crear nueva institución
+                    $institucionId = 12; // ID 12 para "otras"
                     $otraInstitucion = trim($request->otra_institucion);
                     \Log::info('Usando institución personalizada: ' . $otraInstitucion);
                 } else {
@@ -250,13 +251,14 @@ class FormularioController extends Controller
 
                 // 5. MANEJAR TIPO DE PROGRAMA (del formulario actual) - CORREGIDO
                 $tipoProgramaId = $request->tipos_programa_id;
+                $otroPrograma = null;
 
-                // Si seleccionó "otro", usar NULL como ID y guardar el tipo en otro_programa
-                if ($request->tipos_programa_id === '0') {
+                // Si seleccionó "7" (otro programa), guardar el tipo personalizado
+                if ($request->tipos_programa_id === '7') {
                     if (empty($request->otro_programa)) {
                         throw new \Exception('Debe especificar el tipo de programa');
                     }
-                    $tipoProgramaId = null; // No crear nuevo tipo
+                    $tipoProgramaId = 7; // ID 7 para "otros"
                     $otroPrograma = trim($request->otro_programa);
                     \Log::info('Usando tipo de programa personalizado: ' . $otroPrograma);
                 } else {
@@ -267,12 +269,12 @@ class FormularioController extends Controller
                 // 6. INSERTAR PROGRAMA DE SERVICIO SOCIAL (del formulario actual) - CORREGIDO
                 $programaData = [
                     'alumno_id' => $alumnoId,
-                    'instituciones_id' => $institucionId ?: 1, // Usar ID 1 por defecto para "otras"
-                    'otra_institucion' => $otraInstitucion,
+                    'instituciones_id' => $institucionId, // Será 12 si es "otra"
+                    'otra_institucion' => $otraInstitucion, // El nombre personalizado
                     'titulos_id' => $request->titulos_id,
                     'metodo_servicio_id' => $request->metodo_servicio_id,
-                    'tipos_programa_id' => $tipoProgramaId ?: 1, // Usar ID 1 por defecto para "otros"
-                    'otro_programa' => $otroPrograma,
+                    'tipos_programa_id' => $tipoProgramaId, // Será 7 si es "otro"
+                    'otro_programa' => $otroPrograma, // El tipo personalizado
                     'nombre_programa' => $request->nombre_programa,
                     'encargado_nombre' => $request->encargado_nombre,
                     'puesto_encargado' => $request->puesto_encargado,
@@ -868,11 +870,11 @@ class FormularioController extends Controller
 $otraInstitucion = null;
 
 // Manejar institución personalizada
-if ($request->programa_instituciones_id === 'otra') {
+if ($request->programa_instituciones_id === '12') {
     if (empty($request->programa_otra_institucion)) {
         throw new \Exception('Debe especificar el nombre de la institución');
     }
-    $institucionId = 12; // ID por defecto para "otras"
+    $institucionId = 12; // ID 12 para "otras"
     $otraInstitucion = trim($request->programa_otra_institucion);
 } else {
     $otraInstitucion = null;
@@ -882,11 +884,11 @@ $tipoProgramaId = $request->programa_tipos_programa_id;
 $otroPrograma = null;
 
 // Manejar tipo de programa personalizado
-if ($request->programa_tipos_programa_id === '0') {
+if ($request->programa_tipos_programa_id === '7') {
     if (empty($request->programa_otro_programa)) {
         throw new \Exception('Debe especificar el tipo de programa');
     }
-    $tipoProgramaId = 1; // ID por defecto para "otros"
+    $tipoProgramaId = 7; // ID 7 para "otros"
     $otroPrograma = trim($request->programa_otro_programa);
 } else {
     $otroPrograma = null;
@@ -906,7 +908,6 @@ $programaData = [
     'fecha_final' => $request->programa_fecha_final,
     'tipos_programa_id' => $tipoProgramaId,
     'otro_programa' => $otroPrograma,
-    'status_id' => 1,
 ];
 
 \Log::info('Datos del programa a actualizar:', $programaData);
@@ -953,4 +954,3 @@ if ($programaExistente) {
 
 
 
-//ERROOOOOOOOOOOR EN LAS INSTITUCIONES Y TIPOS DE PROGRAMAS CUANDO ELIMINAS COSAS

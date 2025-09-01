@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 class FormatoController extends Controller
@@ -37,6 +38,11 @@ class FormatoController extends Controller
                     return redirect()->back()->with('error', 'Tipo de formato no válido.');
             }
         } catch (\Exception $e) {
+            \Log::error('Error al generar documento: ' . $e->getMessage(), [
+                'alumno_id' => $id,
+                'tipo' => $tipo,
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect()->back()->with('error', 'Error al generar el documento: ' . $e->getMessage());
         }
     }
@@ -89,7 +95,7 @@ class FormatoController extends Controller
                     // Información de servicio social
                     'instituciones.nombre as institucion_nombre',
                     'programa_servicio_social.otra_institucion',
-                    'programa_servicio_social.instituciones_id', // Agregar este campo
+                    'programa_servicio_social.instituciones_id',
                     'programa_servicio_social.nombre_programa',
                     'programa_servicio_social.encargado_nombre',
                     'titulos.titulo',
@@ -99,8 +105,8 @@ class FormatoController extends Controller
                     'programa_servicio_social.fecha_inicio',
                     'programa_servicio_social.fecha_final',
                     'tipos_programa.tipo as tipo_programa',
-                    'programa_servicio_social.tipos_programa_id', // Agregar este campo
-                    'programa_servicio_social.otro_programa' // Agregar este campo
+                    'programa_servicio_social.tipos_programa_id',
+                    'programa_servicio_social.otro_programa'
                 ])
                 ->where('alumno.id', $id)
                 ->first();
@@ -110,105 +116,153 @@ class FormatoController extends Controller
         }
     }
 
+    private function ensureStorageDirectories()
+    {
+        $dirs = ['temp', 'documents'];
+        foreach ($dirs as $dir) {
+            if (!Storage::exists($dir)) {
+                Storage::makeDirectory($dir);
+            }
+        }
+    }
+
     private function generarFormatoWord($alumno)
     {
         try {
+            // Asegurar que los directorios existan
+            $this->ensureStorageDirectories();
+
             // Obtener la plantilla desde la base de datos
             $formato = DB::table('formatos')->first();
             
             if (!$formato || !$formato->formato_word) {
-                throw new \Exception('No se encontró la plantilla de formato Word');
+                \Log::warning('No se encontró plantilla Word, generando documento básico');
+                return $this->crearDocumentoBasico($alumno);
             }
 
-            // Crear archivo temporal en el directorio de almacenamiento de Laravel
-            $tempTemplatePath = storage_path('app/temp_template_' . uniqid() . '.docx');
-            file_put_contents($tempTemplatePath, $formato->formato_word);
+            // Crear nombres únicos para archivos temporales
+            $templateFileName = 'temp/template_' . uniqid() . '.docx';
+            $outputFileName = 'temp/output_' . uniqid() . '.docx';
+
+            // Guardar la plantilla temporalmente usando Storage
+            Storage::put($templateFileName, $formato->formato_word);
+            $tempTemplatePath = Storage::path($templateFileName);
 
             $templateProcessor = new TemplateProcessor($tempTemplatePath);
 
             // Reemplazar los placeholders
             $this->reemplazarPlaceholders($templateProcessor, $alumno);
 
-            // Usar el directorio de almacenamiento de Laravel en lugar del sistema
-            $outputPath = storage_path('app/temp_output_' . uniqid() . '.docx');
+            // Generar archivo de salida
+            $outputPath = Storage::path($outputFileName);
             $templateProcessor->saveAs($outputPath);
 
-            // Limpiar archivo temporal de plantilla
-            if (file_exists($tempTemplatePath)) {
-                unlink($tempTemplatePath);
-            }
-
+            // Crear nombre del archivo final
             $filename = "carta_presentacion_{$alumno->numero_control}.docx";
             
-            return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
+            // Leer el contenido del archivo y eliminarlo después
+            $fileContent = Storage::get($outputFileName);
+            
+            // Limpiar archivos temporales
+            Storage::delete($templateFileName);
+            Storage::delete($outputFileName);
+            
+            return response($fileContent)
+                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Content-Length', strlen($fileContent));
+
         } catch (\Exception $e) {
-            \Log::error('Error generando formato Word: ' . $e->getMessage());
-            return response()->json(['error' => 'Error al generar el documento'], 500);
+            \Log::error('Error generando formato Word: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Fallback a documento básico
+            return $this->crearDocumentoBasico($alumno);
         }
     }
 
     private function generarReporte($alumno)
     {
         try {
+            $this->ensureStorageDirectories();
+
             $formato = DB::table('formatos')->first();
             
             if (!$formato || !$formato->formato_reporte) {
-                throw new \Exception('No se encontró la plantilla de reporte');
+                \Log::warning('No se encontró plantilla de reporte, generando básico');
+                return $this->crearReporteBasico($alumno);
             }
 
-            // Usar storage_path en lugar de sys_get_temp_dir
-            $tempTemplatePath = storage_path('app/temp_template_reporte_' . uniqid() . '.docx');
-            file_put_contents($tempTemplatePath, $formato->formato_reporte);
+            $templateFileName = 'temp/template_reporte_' . uniqid() . '.docx';
+            $outputFileName = 'temp/output_reporte_' . uniqid() . '.docx';
+
+            Storage::put($templateFileName, $formato->formato_reporte);
+            $tempTemplatePath = Storage::path($templateFileName);
 
             $templateProcessor = new TemplateProcessor($tempTemplatePath);
             $this->reemplazarPlaceholders($templateProcessor, $alumno);
 
-            $outputPath = storage_path('app/temp_output_reporte_' . uniqid() . '.docx');
+            $outputPath = Storage::path($outputFileName);
             $templateProcessor->saveAs($outputPath);
-
-            // Limpiar archivo temporal de plantilla
-            if (file_exists($tempTemplatePath)) {
-                unlink($tempTemplatePath);
-            }
 
             $filename = "reporte_mensual_{$alumno->numero_control}.docx";
             
-            return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
+            $fileContent = Storage::get($outputFileName);
+            
+            Storage::delete($templateFileName);
+            Storage::delete($outputFileName);
+            
+            return response($fileContent)
+                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Content-Length', strlen($fileContent));
+
         } catch (\Exception $e) {
             \Log::error('Error generando reporte: ' . $e->getMessage());
-            return response()->json(['error' => 'Error al generar el documento'], 500);
+            return $this->crearReporteBasico($alumno);
         }
     }
 
     private function generarReporteFinal($alumno)
     {
         try {
+            $this->ensureStorageDirectories();
+
             $formato = DB::table('formatos')->first();
             
             if (!$formato || !$formato->formato_reporte_final) {
-                throw new \Exception('No se encontró la plantilla de reporte final');
+                \Log::warning('No se encontró plantilla de reporte final, generando básico');
+                return $this->crearReporteFinalBasico($alumno);
             }
 
-            $tempTemplatePath = storage_path('app/temp_template_final_' . uniqid() . '.docx');
-            file_put_contents($tempTemplatePath, $formato->formato_reporte_final);
+            $templateFileName = 'temp/template_final_' . uniqid() . '.docx';
+            $outputFileName = 'temp/output_final_' . uniqid() . '.docx';
+
+            Storage::put($templateFileName, $formato->formato_reporte_final);
+            $tempTemplatePath = Storage::path($templateFileName);
 
             $templateProcessor = new TemplateProcessor($tempTemplatePath);
             $this->reemplazarPlaceholders($templateProcessor, $alumno);
 
-            $outputPath = storage_path('app/temp_output_final_' . uniqid() . '.docx');
+            $outputPath = Storage::path($outputFileName);
             $templateProcessor->saveAs($outputPath);
-
-            // Limpiar archivo temporal de plantilla
-            if (file_exists($tempTemplatePath)) {
-                unlink($tempTemplatePath);
-            }
 
             $filename = "reporte_final_{$alumno->numero_control}.docx";
             
-            return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
+            $fileContent = Storage::get($outputFileName);
+            
+            Storage::delete($templateFileName);
+            Storage::delete($outputFileName);
+            
+            return response($fileContent)
+                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Content-Length', strlen($fileContent));
+
         } catch (\Exception $e) {
             \Log::error('Error generando reporte final: ' . $e->getMessage());
-            return response()->json(['error' => 'Error al generar el documento'], 500);
+            return $this->crearReporteFinalBasico($alumno);
         }
     }
 
@@ -284,9 +338,21 @@ class FormatoController extends Controller
             // Información del servicio social
             $section->addText("SERVICIO SOCIAL", ['bold' => true]);
             $section->addText("Programa: {$alumno->nombre_programa}");
-            $section->addText("Institución: {$alumno->institucion_nombre}");
+            
+            // Usar la lógica correcta para mostrar la institución
+            $institucion = ($alumno->instituciones_id == 12 && !empty($alumno->otra_institucion)) 
+                ? $alumno->otra_institucion 
+                : $alumno->institucion_nombre;
+            $section->addText("Institución: {$institucion}");
+            
             $section->addText("Método: {$alumno->metodo}");
-            $section->addText("Tipo: {$alumno->tipo_programa}");
+            
+            // Usar la lógica correcta para mostrar el tipo de programa
+            $tipoPrograma = ($alumno->tipos_programa_id == 0 && !empty($alumno->otro_programa)) 
+                ? $alumno->otro_programa 
+                : $alumno->tipo_programa;
+            $section->addText("Tipo: {$tipoPrograma}");
+            
             $section->addText("Periodo: Del {$alumno->fecha_inicio} al {$alumno->fecha_final}");
             $section->addText("Duración: {$alumno->meses_servicio} meses");
             
@@ -296,19 +362,30 @@ class FormatoController extends Controller
             $section->addText("Puesto: {$alumno->puesto_encargado}");
             $section->addText("Teléfono de la institución: {$alumno->telefono_institucion}");
             
-            // Guardar el documento
-            $tempFile = tempnam(sys_get_temp_dir(), 'formato_basico_') . '.docx';
-            $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
-            $writer->save($tempFile);
+            // Guardar usando Storage
+            $this->ensureStorageDirectories();
+            $fileName = 'temp/formato_basico_' . uniqid() . '.docx';
+            $filePath = Storage::path($fileName);
             
-            return response()->download($tempFile, 'carta_presentacion_' . $alumno->id . '.docx')
-                           ->deleteFileAfterSend(true);
+            $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+            $writer->save($filePath);
+            
+            $fileContent = Storage::get($fileName);
+            Storage::delete($fileName);
+            
+            $downloadName = 'carta_presentacion_' . $alumno->numero_control . '.docx';
+            
+            return response($fileContent)
+                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                ->header('Content-Disposition', 'attachment; filename="' . $downloadName . '"')
+                ->header('Content-Length', strlen($fileContent));
             
         } catch (\Exception $e) {
+            \Log::error('Error creando documento básico: ' . $e->getMessage());
             return response()->json([
                 'error' => 'Error al crear documento básico: ' . $e->getMessage(),
                 'alumno' => $alumno
-            ]);
+            ], 500);
         }
     }
 
@@ -330,5 +407,148 @@ class FormatoController extends Controller
             'tipo' => 'reporte_final_basico',
             'data' => $alumno
         ]);
+    }
+
+    // Métodos públicos para export (con validación de sesión)
+    public function exportSolicitud($alumnoId)
+    {
+        return $this->downloadEditedWord($alumnoId, 'word');
+    }
+
+    public function exportEscolaridad($alumnoId)
+    {
+        // Para escolaridad, puedes crear un documento específico o usar el mismo método
+        return $this->crearDocumentoEscolaridad($alumnoId);
+    }
+
+    public function exportPrograma($alumnoId)
+    {
+        // Para programa, puedes crear un documento específico o usar el mismo método
+        return $this->crearDocumentoPrograma($alumnoId);
+    }
+
+    public function exportReporteFinal($alumnoId)
+    {
+        return $this->downloadEditedWord($alumnoId, 'reporte_final');
+    }
+
+    private function crearDocumentoEscolaridad($alumnoId)
+    {
+        try {
+            $alumno = $this->obtenerDatosCompletos($alumnoId);
+            
+            if (!$alumno) {
+                abort(404, 'Alumno no encontrado');
+            }
+
+            $phpWord = new \PhpOffice\PhpWord\PhpWord();
+            $section = $phpWord->addSection();
+            
+            // Título
+            $section->addText('INFORMACIÓN ESCOLAR', 
+                ['bold' => true, 'size' => 16], ['alignment' => 'center']);
+            $section->addTextBreak(2);
+            
+            // Información del alumno
+            $section->addText("Alumno: {$alumno->nombre} {$alumno->apellido_p} {$alumno->apellido_m}");
+            $section->addText("Número de Control: {$alumno->numero_control}");
+            $section->addText("Correo Institucional: {$alumno->correo_institucional}");
+            $section->addTextBreak();
+            
+            // Información académica
+            $section->addText("INFORMACIÓN ACADÉMICA", ['bold' => true]);
+            $section->addText("Carrera: {$alumno->carrera_nombre}");
+            $section->addText("Modalidad: {$alumno->modalidad_nombre}");
+            $section->addText("Semestre: {$alumno->semestre_nombre}");
+            $section->addText("Grupo: {$alumno->letra}");
+            $section->addText("Meses de Servicio: {$alumno->meses_servicio}");
+            
+            return $this->guardarYDescargarDocumento($phpWord, "escolaridad_{$alumno->numero_control}.docx");
+            
+        } catch (\Exception $e) {
+            \Log::error('Error creando documento escolaridad: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al generar documento de escolaridad'], 500);
+        }
+    }
+
+    private function crearDocumentoPrograma($alumnoId)
+    {
+        try {
+            $alumno = $this->obtenerDatosCompletos($alumnoId);
+            
+            if (!$alumno) {
+                abort(404, 'Alumno no encontrado');
+            }
+
+            $phpWord = new \PhpOffice\PhpWord\PhpWord();
+            $section = $phpWord->addSection();
+            
+            // Título
+            $section->addText('INFORMACIÓN DEL PROGRAMA DE SERVICIO SOCIAL', 
+                ['bold' => true, 'size' => 16], ['alignment' => 'center']);
+            $section->addTextBreak(2);
+            
+            // Información del alumno
+            $section->addText("Alumno: {$alumno->nombre} {$alumno->apellido_p} {$alumno->apellido_m}");
+            $section->addText("Número de Control: {$alumno->numero_control}");
+            $section->addTextBreak();
+            
+            // Información del programa
+            $section->addText("PROGRAMA DE SERVICIO SOCIAL", ['bold' => true]);
+            $section->addText("Nombre del Programa: {$alumno->nombre_programa}");
+            
+            // Usar la lógica correcta para mostrar la institución
+            $institucion = ($alumno->instituciones_id == 12 && !empty($alumno->otra_institucion)) 
+                ? $alumno->otra_institucion 
+                : $alumno->institucion_nombre;
+            $section->addText("Institución: {$institucion}");
+            
+            $section->addText("Método: {$alumno->metodo}");
+            
+            // Usar la lógica correcta para mostrar el tipo de programa
+            $tipoPrograma = ($alumno->tipos_programa_id == 0 && !empty($alumno->otro_programa)) 
+                ? $alumno->otro_programa 
+                : $alumno->tipo_programa;
+            $section->addText("Tipo de Programa: {$tipoPrograma}");
+            
+            $section->addText("Fecha de Inicio: {$alumno->fecha_inicio}");
+            $section->addText("Fecha de Término: {$alumno->fecha_final}");
+            $section->addTextBreak();
+            
+            $section->addText("RESPONSABLE DEL PROGRAMA", ['bold' => true]);
+            $section->addText("Nombre: {$alumno->titulo} {$alumno->encargado_nombre}");
+            $section->addText("Puesto: {$alumno->puesto_encargado}");
+            $section->addText("Teléfono: {$alumno->telefono_institucion}");
+            
+            return $this->guardarYDescargarDocumento($phpWord, "programa_{$alumno->numero_control}.docx");
+            
+        } catch (\Exception $e) {
+            \Log::error('Error creando documento programa: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al generar documento de programa'], 500);
+        }
+    }
+
+    private function guardarYDescargarDocumento($phpWord, $filename)
+    {
+        try {
+            $this->ensureStorageDirectories();
+            $tempFileName = 'temp/documento_' . uniqid() . '.docx';
+            $filePath = Storage::path($tempFileName);
+            
+            $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+            $writer->save($filePath);
+            
+            $fileContent = Storage::get($tempFileName);
+            Storage::delete($tempFileName);
+            
+            return response($fileContent)
+                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Content-Length', strlen($fileContent));
+                
+        } catch (\Exception $e) {
+            \Log::error('Error guardando documento: ' . $e->getMessage());
+            throw $e;
+        }
     }
 }
