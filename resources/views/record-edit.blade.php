@@ -779,10 +779,18 @@
                                                    placeholder="correo@ejemplo.com"
                                                    {{ !in_array($field, ['otra_institucion', 'otro_programa', 'descripcion', 'observaciones']) ? 'required' : '' }}>
                                         @elseif(str_contains($field, 'password'))
-                                            <!-- Campo de contraseña -->
-                                            <input type="password" name="{{ $field }}" id="{{ $field }}" value=""
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                                   placeholder="Dejar en blanco para mantener la actual">
+    <!-- Campo de contraseña -->
+    <input type="password" 
+           name="{{ $field }}" 
+           id="{{ $field }}" 
+           value="" 
+           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+           placeholder="Dejar en blanco para mantener la actual"
+           autocomplete="new-password">
+    <small class="text-gray-500 text-xs">
+        💡 Deja este campo vacío si NO deseas cambiar la contraseña
+    </small>
+
                                         @elseif(in_array($field, ['descripcion', 'observaciones', 'comentarios']))
                                             <!-- Textarea para campos largos -->
                                             <textarea name="{{ $field }}" id="{{ $field }}" rows="3"

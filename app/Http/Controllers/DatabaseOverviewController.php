@@ -341,62 +341,136 @@ class DatabaseOverviewController extends Controller
         }
     }
 
-    public function update(Request $request, $table, $id)
-    {
-        try {
-            if ($table === 'alumno') {
-                return $this->updateAlumnoFromRecord($request, $id);
-            }
 
-            // Validaciones específicas por tabla
-            $rules = $this->getValidationRules($table, 'update');
-            $request->validate($rules);
+public function update(Request $request, $table, $id)
+{
+    // ✅ LOG INICIAL - Siempre se ejecuta
+    \Log::info('=== UPDATE MÉTODO INICIADO ===', [
+        'table' => $table,
+        'id' => $id,
+        'method' => $request->method(),
+        'all_data' => $request->all()
+    ]);
 
-            // Preparar datos para actualización
-            $data = $request->except(['_token', '_method']);
+    try {
+        if ($table === 'alumno') {
+            \Log::info('Redirigiendo a updateAlumnoFromRecord');
+            return $this->updateAlumnoFromRecord($request, $id);
+        }
+
+        // Validaciones específicas por tabla
+        $rules = $this->getValidationRules($table, 'update');
+        \Log::info('Reglas de validación obtenidas', ['rules' => $rules]);
+        
+        $request->validate($rules);
+        \Log::info('Validación exitosa');
+
+        // Preparar datos para actualización
+        $data = $request->except(['_token', '_method']);
+        
+        \Log::info('Datos preparados (antes de procesar)', [
+            'tabla' => $table,
+            'data_keys' => array_keys($data),
+            'password_existe' => isset($data['password']),
+            'password_valor' => isset($data['password']) ? $data['password'] : 'NO EXISTE'
+        ]);
+        
+        // Agregar timestamp de actualización si la tabla lo soporta
+        if (Schema::hasColumn($table, 'updated_at')) {
+            $data['updated_at'] = now();
+        }
+
+        // Lógica específica para tabla alumno
+        if ($table === 'alumno') {
+            unset($data['fecha_registro']);
             
-            // Agregar timestamp de actualización si la tabla lo soporta
-            if (Schema::hasColumn($table, 'updated_at')) {
-                $data['updated_at'] = now();
+            if (isset($data['correo_institucional']) && !str_ends_with($data['correo_institucional'], '@cbta256.edu.mx')) {
+                throw new \Exception('El correo debe terminar en @cbta256.edu.mx');
             }
+        }
 
-            // Lógica específica para tabla alumno
-            if ($table === 'alumno') {
-                // No actualizar fecha_registro si ya existe
-                unset($data['fecha_registro']);
+        // ✅ PROCESAR CONTRASEÑA PARA TABLA USUARIO
+        if ($table === 'usuario') {
+            \Log::info('=== PROCESANDO CONTRASEÑA DE USUARIO ===');
+            \Log::info('Datos recibidos completos:', $data);
+            
+            if (array_key_exists('password', $data)) {
+                $password = trim($data['password']);
                 
-                // Validar correo institucional
-                if (isset($data['correo_institucional']) && !str_ends_with($data['correo_institucional'], '@cbta256.edu.mx')) {
-                    throw new \Exception('El correo debe terminar en @cbta256.edu.mx');
+                \Log::info('Password encontrado:', [
+                    'valor_original' => $data['password'],
+                    'valor_trimmed' => $password,
+                    'es_vacio' => empty($password),
+                    'longitud' => strlen($password)
+                ]);
+                
+                if (empty($password)) {
+                    \Log::info('❌ Password vacío - NO se actualizará');
+                    unset($data['password']);
+                } else {
+                    \Log::info('✅ Encriptando nueva contraseña');
+                    $data['password'] = bcrypt($password);
+                    \Log::info('Password encriptado exitosamente:', [
+                        'hash_inicio' => substr($data['password'], 0, 30) . '...',
+                        'longitud_hash' => strlen($data['password'])
+                    ]);
                 }
-            }
-
-            // Manejar campos de contraseña
-            if (isset($data['password']) && empty($data['password'])) {
-                unset($data['password']); // No actualizar si está vacío
-            } elseif (isset($data['password'])) {
-                $data['password'] = bcrypt($data['password']); // Encriptar nueva contraseña
-            }
-
-            // Actualizar registro
-            $updated = DB::table($table)->where('id', $id)->update($data);
-
-            if ($updated) {
-                return redirect()->route('dashboard', ['table' => $table])
-                               ->with('success', 'Registro actualizado exitosamente');
             } else {
-                return redirect()->back()
-                               ->with('error', 'No se pudo actualizar el registro')
-                               ->withInput();
+                \Log::info('⚠️ Campo password NO existe en los datos recibidos');
             }
+            
+            \Log::info('Datos finales a actualizar:', [
+                'campos' => array_keys($data),
+                'password_en_data' => isset($data['password'])
+            ]);
+        }
 
-        } catch (\Exception $e) {
+        // Actualizar registro
+        \Log::info('Ejecutando UPDATE en base de datos', [
+            'table' => $table,
+            'id' => $id,
+            'campos_a_actualizar' => array_keys($data)
+        ]);
+        
+        $updated = DB::table($table)->where('id', $id)->update($data);
+
+        \Log::info('Resultado del UPDATE', [
+            'filas_afectadas' => $updated,
+            'registro_existe' => DB::table($table)->where('id', $id)->exists()
+        ]);
+
+        if ($updated || DB::table($table)->where('id', $id)->exists()) {
+            \Log::info('✅ Registro actualizado exitosamente');
+            return redirect()->route('dashboard', ['table' => $table])
+                           ->with('success', 'Registro actualizado exitosamente');
+        } else {
+            \Log::warning('⚠️ No se actualizó ningún registro');
             return redirect()->back()
-                           ->with('error', 'Error al actualizar: ' . $e->getMessage())
+                           ->with('error', 'No se pudo actualizar el registro')
                            ->withInput();
         }
-    }
 
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        \Log::error('❌ Error de validación:', [
+            'errors' => $e->errors()
+        ]);
+        throw $e;
+        
+    } catch (\Exception $e) {
+        \Log::error('❌ Error al actualizar:', [
+            'table' => $table,
+            'id' => $id,
+            'error' => $e->getMessage(),
+            'line' => $e->getLine(),
+            'file' => $e->getFile(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return redirect()->back()
+                       ->with('error', 'Error al actualizar: ' . $e->getMessage())
+                       ->withInput();
+    }
+}
     private function updateAlumnoFromRecord(Request $request, $id)
     {
         try {
@@ -711,27 +785,33 @@ class DatabaseOverviewController extends Controller
     // Método para guardar nuevos registros
     public function store(Request $request, $table)
     {
-        try {
-            $rules = $this->getValidationRules($table, 'create');
-            $request->validate($rules);
+      
+    try {
+        $rules = $this->getValidationRules($table, 'create');
+        $request->validate($rules);
 
-            $data = $request->except(['_token']);
-            
-            if (Schema::hasColumn($table, 'created_at')) {
-                $data['created_at'] = now();
-                $data['updated_at'] = now();
-            }
-
-            $id = DB::table($table)->insertGetId($data);
-
-            return redirect()->route('dashboard', ['table' => $table])
-                           ->with('success', 'Registro creado exitosamente');
-
-        } catch (\Exception $e) {
-            return redirect()->back()
-                           ->with('error', 'Error al crear registro: ' . $e->getMessage())
-                           ->withInput();
+        $data = $request->except(['_token']);
+        
+        // ✅ AGREGAR: Encriptar contraseña para tabla usuario
+        if ($table === 'usuario' && isset($data['password'])) {
+            $data['password'] = bcrypt($data['password']);
         }
+        
+        if (Schema::hasColumn($table, 'created_at')) {
+            $data['created_at'] = now();
+            $data['updated_at'] = now();
+        }
+
+        $id = DB::table($table)->insertGetId($data);
+
+        return redirect()->route('dashboard', ['table' => $table])
+                       ->with('success', 'Registro creado exitosamente');
+
+    } catch (\Exception $e) {
+        return redirect()->back()
+                       ->with('error', 'Error al crear registro: ' . $e->getMessage())
+                       ->withInput();
+    }
     }
 
     /**
@@ -741,7 +821,20 @@ class DatabaseOverviewController extends Controller
     {
         $rules = [];
         
-        switch($table) {
+    switch($table) {
+        case 'usuario':
+            $rules = [
+                'nombre' => 'required|string|max:45',
+                'apellidoP' => 'required|string|max:45',
+                'apellidoM' => 'required|string|max:45',
+                'correo' => 'required|email|max:255' . ($action === 'create' ? '|unique:usuario,correo' : ''),
+                'password' => ($action === 'create' ? 'required' : 'nullable') . '|string|min:8',
+                'telefono' => 'required|digits:10',
+                'rol_id' => 'required|exists:rol,id',
+            ];
+            break;
+            
+       
             case 'titulos':
                 $rules = [
                     'titulo' => 'required|string|max:45' . ($action === 'update' ? '' : '|unique:titulos,titulo')
@@ -1130,58 +1223,130 @@ class DatabaseOverviewController extends Controller
         }
     }
 
-    public function updateRecord(Request $request, $table, $id)
-    {
-        try {
-            // Validación especial para programa_servicio_social ANTES de la validación general
-            if ($table === 'programa_servicio_social') {
-                $currentRecord = DB::table($table)->where('id', $id)->first();
-                
-                // Usar la fecha del request o la actual del registro
-                $fechaFinal = \Carbon\Carbon::parse($request->fecha_final ?? $currentRecord->fecha_final)->startOfDay();
-                $hoy = \Carbon\Carbon::now()->startOfDay(); // Solo fecha, sin hora
-                
-                \Log::info('=== VALIDACIÓN SERVIDOR ===');
-                \Log::info('Fecha final del programa: ' . $fechaFinal->format('Y-m-d'));
-                \Log::info('Fecha de hoy: ' . $hoy->format('Y-m-d'));
-                \Log::info('¿Fecha pasada?: ' . ($hoy->gt($fechaFinal) ? 'SÍ' : 'NO'));
-                \Log::info('Status solicitado: ' . ($request->status_id ?? 'No especificado'));
-                
-                // Si la fecha YA PASÓ (después del día final) y se intenta cambiar a "En proceso"
-                if ($hoy->gt($fechaFinal) && isset($request->status_id) && $request->status_id == 3) {
-                    return back()->withErrors([
-                        'status_id' => 'No se puede marcar como "En proceso" cuando la fecha de finalización ya ha pasado (Hoy: ' . $hoy->format('d/m/Y') . ', Fecha final: ' . $fechaFinal->format('d/m/Y') . ').'
-                    ])->withInput();
-                }
+public function updateRecord(Request $request, $table, $id)
+{
+    \Log::info('=== updateRecord MÉTODO INICIADO ===', [
+        'table' => $table,
+        'id' => $id,
+        'all_data' => $request->all()
+    ]);
+    
+    try {
+        // Validación especial para programa_servicio_social ANTES de la validación general
+        if ($table === 'programa_servicio_social') {
+            $currentRecord = DB::table($table)->where('id', $id)->first();
+            
+            $fechaFinal = \Carbon\Carbon::parse($request->fecha_final ?? $currentRecord->fecha_final)->startOfDay();
+            $hoy = \Carbon\Carbon::now()->startOfDay();
+            
+            \Log::info('=== VALIDACIÓN SERVIDOR ===');
+            \Log::info('Fecha final del programa: ' . $fechaFinal->format('Y-m-d'));
+            \Log::info('Fecha de hoy: ' . $hoy->format('Y-m-d'));
+            \Log::info('¿Fecha pasada?: ' . ($hoy->gt($fechaFinal) ? 'SÍ' : 'NO'));
+            \Log::info('Status solicitado: ' . ($request->status_id ?? 'No especificado'));
+            
+            if ($hoy->gt($fechaFinal) && isset($request->status_id) && $request->status_id == 3) {
+                // ✅ CAMBIAR: Redirigir al dashboard con error
+                return redirect()->route('dashboard', ['table' => $table])
+                    ->withErrors([
+                        'status_id' => 'No se puede marcar como "En proceso" cuando la fecha de finalización ya ha pasado.'
+                    ]);
             }
-
-            // Validación general
-            $rules = $this->getValidationRules($table);
-            $validatedData = $request->validate($rules);
-
-            // Debug para ver qué datos se están enviando
-            \Log::info('Datos a actualizar para tabla ' . $table . ' ID ' . $id . ':', $validatedData);
-
-            // Actualizar el registro
-            $updated = DB::table($table)->where('id', $id)->update($validatedData);
-
-            if ($updated) {
-                // Verificar la actualización
-                $updatedRecord = DB::table($table)->where('id', $id)->first();
-                \Log::info('Registro después de actualizar:', (array)$updatedRecord);
-
-                return redirect()->back()->with('success', 'Registro actualizado correctamente.');
-            } else {
-                return redirect()->back()->with('error', 'No se pudo actualizar el registro.');
-            }
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return back()->withErrors($e->validator)->withInput();
-        } catch (\Exception $e) {
-            \Log::error('Error al actualizar registro: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Error al actualizar el registro: ' . $e->getMessage());
         }
+
+        // Validación general
+        $rules = $this->getValidationRules($table, 'update');
+        $validatedData = $request->validate($rules);
+        
+        \Log::info('Datos validados:', $validatedData);
+
+        // ✅ PROCESAR CONTRASEÑA PARA TABLA USUARIO
+        if ($table === 'usuario') {
+            \Log::info('=== PROCESANDO CONTRASEÑA DE USUARIO ===');
+            
+            if (array_key_exists('password', $validatedData)) {
+                $password = trim($validatedData['password']);
+                
+                \Log::info('Password encontrado:', [
+                    'valor_original' => $validatedData['password'],
+                    'valor_trimmed' => $password,
+                    'es_vacio' => empty($password),
+                    'longitud' => strlen($password)
+                ]);
+                
+                if (empty($password)) {
+                    \Log::info('❌ Password vacío - NO se actualizará');
+                    unset($validatedData['password']);
+                } else {
+                    \Log::info('✅ Encriptando nueva contraseña');
+                    $validatedData['password'] = bcrypt($password);
+                    \Log::info('Password encriptado exitosamente:', [
+                        'hash_inicio' => substr($validatedData['password'], 0, 30) . '...',
+                        'longitud_hash' => strlen($validatedData['password'])
+                    ]);
+                }
+            } else {
+                \Log::info('⚠️ Campo password NO existe en validatedData');
+            }
+        }
+
+        \Log::info('Datos finales a actualizar:', $validatedData);
+
+        // Actualizar el registro
+        $updated = DB::table($table)->where('id', $id)->update($validatedData);
+        
+        \Log::info('Resultado UPDATE:', ['filas_afectadas' => $updated]);
+        
+        if ($updated || DB::table($table)->where('id', $id)->exists()) {
+            // Verificar la actualización
+            $updatedRecord = DB::table($table)->where('id', $id)->first();
+            \Log::info('Registro después de actualizar:', (array)$updatedRecord);
+
+            // ✅ CAMBIAR: Redirigir al dashboard en lugar de back()
+            \Log::info('✅ Redirigiendo al dashboard con tabla: ' . $table);
+            return redirect()->route('dashboard', ['table' => $table])
+                ->with('success', 'Registro actualizado correctamente');
+        } else {
+            \Log::warning('⚠️ No se actualizó ningún registro');
+            
+            // ✅ CAMBIAR: Redirigir al dashboard con mensaje de info
+            return redirect()->route('dashboard', ['table' => $table])
+                ->with('info', 'No se detectaron cambios en el registro');
+        }
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        \Log::error('❌ Error de validación:', ['errors' => $e->errors()]);
+        
+        // ✅ CAMBIAR: Redirigir al dashboard con errores
+        return redirect()->route('dashboard', ['table' => $table])
+            ->withErrors($e->validator)
+            ->with('error', 'Error de validación. Revise los campos.');
+            
+    } catch (\Exception $e) {
+        \Log::error('❌ Error al actualizar registro:', [
+            'table' => $table,
+            'id' => $id,
+            'error' => $e->getMessage(),
+            'line' => $e->getLine()
+        ]);
+         // ✅ CAMBIAR: Redirigir al dashboard con errores
+        return redirect()->route('dashboard', ['table' => $table])
+            ->withErrors($e->validator)
+            ->with('error', 'Error de validación. Revise los campos.');
+            
+    } catch (\Exception $e) {
+        \Log::error('❌ Error al actualizar registro:', [
+            'table' => $table,
+            'id' => $id,
+            'error' => $e->getMessage(),
+            'line' => $e->getLine()
+        ]);
+        
+        // ✅ CAMBIAR: Redirigir al dashboard con error
+        return redirect()->route('dashboard', ['table' => $table])
+            ->with('error', 'Error al actualizar el registro: ' . $e->getMessage());
     }
+}
 
     // AGREGAR este método si no existe
 public function cancelarAlumno($id)

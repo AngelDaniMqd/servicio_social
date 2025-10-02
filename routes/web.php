@@ -174,7 +174,7 @@ Route::middleware(['admin'])->prefix('admin')->group(function () {
         Route::get('/record/edit/{table}/{id}', [RecordController::class, 'edit'])
             ->where(['table' => '^[a-zA-Z_]+$', 'id' => '^[0-9]+$'])
             ->name('record.edit');
-        Route::put('/record/update/{table}/{id}', [RecordController::class, 'update'])
+        Route::put('/record/update/{table}/{id}', [DatabaseOverviewController::class, 'updateRecord'])
             ->where(['table' => '^[a-zA-Z_]+$', 'id' => '^[0-9]+$'])
             ->name('record.update');
         Route::delete('/record/delete/{table}/{id}', [DatabaseOverviewController::class, 'delete'])
