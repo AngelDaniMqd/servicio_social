@@ -16,23 +16,17 @@ class FormatoController extends Controller
         return view('alumnos_descargar', ['alumnos' => $alumnos]);
     }
 
-    public function downloadEditedWord($id, $tipo = 'word')
+    public function downloadEditedWord(Request $request, $id)
     {
         try {
-            // Log inicial para debugging
+            // Obtener el tipo desde la query string, por defecto 'word'
+            $tipo = $request->query('tipo', 'word');
+            
             \Log::info('=== INICIANDO DESCARGA RAILWAY ===', [
                 'alumno_id' => $id,
                 'tipo' => $tipo,
-                'php_version' => phpversion(),
-                'extensions' => [
-                    'zip' => extension_loaded('zip'),
-                    'xml' => extension_loaded('xml'),
-                    'mbstring' => extension_loaded('mbstring')
-                ],
-                'memory_limit' => ini_get('memory_limit'),
-                'storage_path' => storage_path('app'),
-                'temp_dir' => sys_get_temp_dir(),
-                'is_railway' => env('RAILWAY_ENVIRONMENT_NAME') !== null
+                'query_params' => $request->all(),
+                'full_url' => $request->fullUrl()
             ]);
 
             // Verificar extensiones críticas
@@ -56,14 +50,31 @@ class FormatoController extends Controller
                 throw new \Exception('Alumno no encontrado con ID: ' . $id);
             }
 
+            // Log para debugging del tipo recibido
+            \Log::info('Tipo de documento solicitado:', [
+                'tipo' => $tipo,
+                'switch_case' => match($tipo) {
+                    'word' => 'CARTA DE PRESENTACIÓN',
+                    'reporte' => 'REPORTE MENSUAL',
+                    'reporte_final' => 'REPORTE FINAL',
+                    default => 'TIPO DESCONOCIDO'
+                }
+            ]);
+
             // Procesar según tipo
             switch ($tipo) {
                 case 'word':
+                    \Log::info('Entrando a generarFormatoWordRailway');
                     return $this->generarFormatoWordRailway($alumno);
+                    
                 case 'reporte':
+                    \Log::info('Entrando a generarReporteRailway');
                     return $this->generarReporteRailway($alumno);
+                    
                 case 'reporte_final':
+                    \Log::info('Entrando a generarReporteFinalRailway');
                     return $this->generarReporteFinalRailway($alumno);
+                    
                 default:
                     throw new \Exception('Tipo de formato no válido: ' . $tipo);
             }
@@ -71,7 +82,7 @@ class FormatoController extends Controller
         } catch (\Exception $e) {
             \Log::error('Error en downloadEditedWord (Railway):', [
                 'alumno_id' => $id,
-                'tipo' => $tipo,
+                'tipo' => $request->query('tipo', 'TIPO_NO_ENCONTRADO'),
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
@@ -82,7 +93,8 @@ class FormatoController extends Controller
                 'error' => 'Error al generar documento: ' . $e->getMessage(),
                 'debug_info' => [
                     'alumno_id' => $id,
-                    'tipo' => $tipo,
+                    'tipo' => $request->query('tipo', 'no_especificado'),
+                    'url' => $request->fullUrl(),
                     'extensions' => [
                         'zip' => extension_loaded('zip'),
                         'xml' => extension_loaded('xml')
@@ -95,82 +107,42 @@ class FormatoController extends Controller
     private function generarFormatoWordRailway($alumno)
     {
         try {
-            \Log::info('Generando formato Word en Railway', ['alumno_id' => $alumno->id]);
+            \Log::info('Generando CARTA DE PRESENTACIÓN', ['alumno_id' => $alumno->id]);
 
-            // Obtener plantilla desde BD
             $formato = DB::table('formatos')->first();
             if (!$formato || !$formato->formato_word) {
-                throw new \Exception('No hay plantilla de Word configurada en la base de datos');
+                throw new \Exception('No hay plantilla de CARTA configurada');
             }
 
-            // Crear directorio temporal en storage si no existe
             $tempDir = 'temp/documents';
             if (!Storage::exists($tempDir)) {
                 Storage::makeDirectory($tempDir);
             }
 
-            // Crear archivo temporal de plantilla
-            $templateFile = $tempDir . '/template_' . uniqid() . '.docx';
-            Storage::put($templateFile, $formato->formato_word);
+            $templateFile = $tempDir . '/template_carta_' . uniqid() . '.docx';
+            Storage::put($templateFile, $formato->formato_word); // ✅ Usa formato_word
 
             $templatePath = Storage::path($templateFile);
-            \Log::info('Plantilla creada en:', ['path' => $templatePath]);
-
-            if (!file_exists($templatePath)) {
-                throw new \Exception('No se pudo crear archivo de plantilla: ' . $templatePath);
-            }
-
-            // Procesar plantilla
             $templateProcessor = new TemplateProcessor($templatePath);
-
-            // Reemplazar variables
             $this->reemplazarPlaceholdersRailway($templateProcessor, $alumno);
 
-            // Crear archivo de salida en storage
             $outputFile = $tempDir . '/carta_' . $alumno->id . '_' . time() . '.docx';
             $outputPath = Storage::path($outputFile);
-
             $templateProcessor->saveAs($outputPath);
 
-            if (!file_exists($outputPath)) {
-                throw new \Exception('No se pudo generar documento final: ' . $outputPath);
-            }
-
-            // Leer contenido del archivo
             $fileContent = file_get_contents($outputPath);
-            if ($fileContent === false) {
-                throw new \Exception('No se pudo leer el contenido del archivo generado');
-            }
-
             $filename = 'carta_presentacion_' . $alumno->nombre . '_' . $alumno->apellido_p . '.docx';
 
-            // Limpiar archivos temporales
-            try {
-                Storage::delete($templateFile);
-                Storage::delete($outputFile);
-            } catch (\Exception $e) {
-                \Log::warning('Error limpiando archivos temporales: ' . $e->getMessage());
-            }
-
-            \Log::info('Documento generado exitosamente', [
-                'filename' => $filename,
-                'size' => strlen($fileContent)
-            ]);
+            Storage::delete($templateFile);
+            Storage::delete($outputFile);
 
             return response($fileContent)
                 ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
                 ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
-                ->header('Content-Length', strlen($fileContent))
-                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                ->header('Pragma', 'no-cache')
-                ->header('Expires', '0');
+                ->header('Content-Length', strlen($fileContent));
 
         } catch (\Exception $e) {
-            \Log::error('Error en generarFormatoWordRailway:', [
-                'alumno_id' => $alumno->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            \Log::error('Error generando CARTA:', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -221,9 +193,11 @@ class FormatoController extends Controller
     private function generarReporteRailway($alumno)
     {
         try {
+            \Log::info('Generando REPORTE MENSUAL', ['alumno_id' => $alumno->id]);
+
             $formato = DB::table('formatos')->first();
             if (!$formato || !$formato->formato_reporte) {
-                return $this->crearReporteBasico($alumno);
+                throw new \Exception('No hay plantilla de REPORTE MENSUAL configurada');
             }
 
             $tempDir = 'temp/documents';
@@ -231,19 +205,19 @@ class FormatoController extends Controller
                 Storage::makeDirectory($tempDir);
             }
 
-            $templateFile = $tempDir . '/template_reporte_' . uniqid() . '.docx';
-            Storage::put($templateFile, $formato->formato_reporte);
+            $templateFile = $tempDir . '/template_reporte_mensual_' . uniqid() . '.docx';
+            Storage::put($templateFile, $formato->formato_reporte); // ✅ Usa formato_reporte
 
             $templatePath = Storage::path($templateFile);
             $templateProcessor = new TemplateProcessor($templatePath);
             $this->reemplazarPlaceholdersRailway($templateProcessor, $alumno);
 
-            $outputFile = $tempDir . '/reporte_' . $alumno->id . '_' . time() . '.docx';
+            $outputFile = $tempDir . '/reporte_mensual_' . $alumno->id . '_' . time() . '.docx';
             $outputPath = Storage::path($outputFile);
             $templateProcessor->saveAs($outputPath);
 
             $fileContent = file_get_contents($outputPath);
-            $filename = "reporte_mensual_{$alumno->numero_control}.docx";
+            $filename = 'reporte_mensual_' . $alumno->numero_control . '.docx';
 
             Storage::delete($templateFile);
             Storage::delete($outputFile);
@@ -254,17 +228,19 @@ class FormatoController extends Controller
                 ->header('Content-Length', strlen($fileContent));
 
         } catch (\Exception $e) {
-            \Log::error('Error generando reporte Railway: ' . $e->getMessage());
-            return $this->crearReporteBasico($alumno);
+            \Log::error('Error generando REPORTE MENSUAL:', ['error' => $e->getMessage()]);
+            throw $e;
         }
     }
 
     private function generarReporteFinalRailway($alumno)
     {
         try {
+            \Log::info('Generando REPORTE FINAL', ['alumno_id' => $alumno->id]);
+
             $formato = DB::table('formatos')->first();
             if (!$formato || !$formato->formato_reporte_final) {
-                return $this->crearReporteFinalBasico($alumno);
+                throw new \Exception('No hay plantilla de REPORTE FINAL configurada');
             }
 
             $tempDir = 'temp/documents';
@@ -272,8 +248,8 @@ class FormatoController extends Controller
                 Storage::makeDirectory($tempDir);
             }
 
-            $templateFile = $tempDir . '/template_final_' . uniqid() . '.docx';
-            Storage::put($templateFile, $formato->formato_reporte_final);
+            $templateFile = $tempDir . '/template_reporte_final_' . uniqid() . '.docx';
+            Storage::put($templateFile, $formato->formato_reporte_final); // ✅ Usa formato_reporte_final
 
             $templatePath = Storage::path($templateFile);
             $templateProcessor = new TemplateProcessor($templatePath);
@@ -284,7 +260,7 @@ class FormatoController extends Controller
             $templateProcessor->saveAs($outputPath);
 
             $fileContent = file_get_contents($outputPath);
-            $filename = "reporte_final_{$alumno->numero_control}.docx";
+            $filename = 'reporte_final_' . $alumno->numero_control . '.docx';
 
             Storage::delete($templateFile);
             Storage::delete($outputFile);
@@ -295,8 +271,8 @@ class FormatoController extends Controller
                 ->header('Content-Length', strlen($fileContent));
 
         } catch (\Exception $e) {
-            \Log::error('Error generando reporte final Railway: ' . $e->getMessage());
-            return $this->crearReporteFinalBasico($alumno);
+            \Log::error('Error generando REPORTE FINAL:', ['error' => $e->getMessage()]);
+            throw $e;
         }
     }
 
