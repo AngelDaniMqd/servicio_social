@@ -376,4 +376,50 @@ class FormatoController extends Controller
     {
         return $this->downloadEditedWord($alumnoId, 'reporte_final');
     }
+
+    public function store(Request $request)
+    {
+        try {
+            // Validar con límite aumentado (10MB = 10240 KB)
+            $rules = [
+                'formato_word' => 'nullable|mimes:doc,docx|max:10240',
+                'formato_reporte' => 'nullable|mimes:doc,docx|max:10240',
+                'formato_reporte_final' => 'nullable|mimes:doc,docx|max:10240',
+            ];
+
+            // Si no existe formato, formato_word es obligatorio
+            $formatoExistente = DB::table('formatos')->first();
+            
+            if (!$formatoExistente) {
+                $rules['formato_word'] = 'required|mimes:doc,docx|max:10240';
+            }
+
+            $request->validate($rules, [
+                'formato_word.max' => 'El archivo de carta no puede superar 10MB',
+                'formato_reporte.max' => 'El archivo de reporte no puede superar 10MB',
+                'formato_reporte_final.max' => 'El archivo de reporte final no puede superar 10MB',
+            ]);
+
+            // Log para debugging
+            \Log::info('Subiendo formatos:', [
+                'files' => [
+                    'formato_word' => $request->hasFile('formato_word') ? $request->file('formato_word')->getSize() . ' bytes' : 'no enviado',
+                    'formato_reporte' => $request->hasFile('formato_reporte') ? $request->file('formato_reporte')->getSize() . ' bytes' : 'no enviado',
+                    'formato_reporte_final' => $request->hasFile('formato_reporte_final') ? $request->file('formato_reporte_final')->getSize() . ' bytes' : 'no enviado',
+                ]
+            ]);
+
+            // ... resto del código existente
+
+        } catch (\Exception $e) {
+            \Log::error('Error subiendo formatos:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Error al subir formatos: ' . $e->getMessage());
+        }
+    }
 }
