@@ -275,6 +275,12 @@ class ExportController extends Controller
     
     private function applyAlumnoFilters($query, $filters)
     {
+        // ✅ FILTRO OBLIGATORIO: Solo alumnos con status_id = 1 (Activo)
+        // Esto asegura que nunca se exporten alumnos eliminados o inactivos
+        $query->where('alumno.status_id', 1);
+        
+        \Log::info('Aplicando filtro de exportación - Solo alumnos activos (status_id = 1)');
+        
         // Filtros de información personal
         if (!empty($filters['nombre'])) {
             $query->where('alumno.nombre', 'like', '%' . $filters['nombre'] . '%');
@@ -324,9 +330,13 @@ class ExportController extends Controller
             $query->where('alumno.rol_id', $filters['rol_id']);
         }
 
+        // ⚠️ REMOVER O COMENTAR ESTE BLOQUE: Ya no permitir filtrar por otros status
+        // El filtro de status_id ahora está hardcodeado arriba a status_id = 1
+        /*
         if (!empty($filters['status_id'])) {
             $query->where('alumno.status_id', $filters['status_id']);
         }
+        */
 
         // Filtro de código postal
         if (!empty($filters['cp'])) {
