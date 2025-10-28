@@ -149,8 +149,412 @@ class FormularioController extends Controller
             return redirect('/escolaridad')->with('error', 'No se pudo cargar el formulario del programa.');
         }
     }
+    
+    public function editarAlumnoPublico($id)
+    {
+        try {
+            // Buscar el alumno
+            $alumno = DB::table('alumno')->where('id', $id)->first();
+            if (!$alumno) {
+                return redirect('/solicitud')->with('error', 'Alumno no encontrado');
+            }
 
-    public function guardarTodo(Request $request)
+            // Obtener datos relacionados CON JOINS para obtener nombres
+            $ubicacion = DB::table('ubicaciones')
+                ->leftJoin('municipios', 'ubicaciones.municipios_id', '=', 'municipios.id')
+                ->leftJoin('estados', 'municipios.estado_id', '=', 'estados.id')
+                ->where('ubicaciones.alumno_id', $id)
+                ->select(
+                    'ubicaciones.*',
+                    'municipios.nombre as municipio_nombre',
+                    'municipios.estado_id as estado_id',
+                    'estados.nombre as estado_nombre'
+                )
+                ->first();
+
+            \Log::info('Datos de ubicación encontrados:', (array)$ubicacion);
+
+            $escolaridad = DB::table('escolaridad_alumno')->where('alumno_id', $id)->first();
+            $programa = DB::table('programa_servicio_social')->where('alumno_id', $id)->first();
+
+            // Obtener opciones para los selects
+            $foreignOptions = [
+                'edad_id' => DB::table('edad')->orderBy('edades')->get(),
+                'sexo_id' => DB::table('sexo')->orderBy('tipo')->get(),
+                'modalidad_id' => DB::table('modalidad')->orderBy('nombre')->get(),
+                'carreras_id' => DB::table('carreras')->orderBy('nombre')->get(),
+                'semestres_id' => DB::table('semestres')->orderBy('nombre')->get(),
+                'grupos_id' => DB::table('grupos')->orderBy('letra')->get(),
+                'instituciones_id' => DB::table('instituciones')->orderBy('nombre')->get(),
+                'titulos_id' => DB::table('titulos')->orderBy('titulo')->get(),
+                'metodo_servicio_id' => DB::table('metodo_servicio')->orderBy('metodo')->get(),
+                'tipos_programa_id' => DB::table('tipos_programa')->orderBy('tipo')->get(),
+                'estados_id' => DB::table('estados')->orderBy('nombre')->get(),
+                'municipios_id' => DB::table('municipios')->orderBy('nombre')->get(),
+            ];
+
+            // Si hay ubicación, obtener municipios del estado actual
+            if ($ubicacion && $ubicacion->estado_id) {
+                $foreignOptions['municipios_del_estado'] = DB::table('municipios')
+                    ->where('estado_id', $ubicacion->estado_id)
+                    ->orderBy('nombre')
+                    ->get();
+            } else {
+                $foreignOptions['municipios_del_estado'] = collect();
+            }
+
+            \Log::info('Enviando datos a la vista:', [
+                'alumno_id' => $alumno->id,
+                'estado_id' => $ubicacion->estado_id ?? 'null',
+                'municipio_id' => $ubicacion->municipios_id ?? 'null',
+                'municipios_disponibles' => $foreignOptions['municipios_del_estado']->count()
+            ]);
+
+            return view('alumno-edit-publico', compact(
+                'alumno', 
+                'ubicacion', 
+                'escolaridad', 
+                'programa', 
+                'foreignOptions'
+            ));
+
+        } catch (\Exception $e) {
+            \Log::error('Error al cargar formulario de edición pública:', [
+                'alumno_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect('/solicitud')->with('error', 'Error al cargar el formulario');
+        }
+    }
+    public function actualizarAlumnoPublico(Request $request, $id)
+    {
+        // Debug inicial
+        \Log::info('=== INICIO ACTUALIZACIÓN PÚBLICA ===');
+        \Log::info('ID del alumno: ' . $id);
+        \Log::info('Método HTTP: ' . $request->method());
+        \Log::info('URL completa: ' . $request->fullUrl());
+        \Log::info('Datos recibidos:', $request->all());
+        
+        try {
+            // Verificar que el alumno existe ANTES de la validación
+            $alumno = DB::table('alumno')->where('id', $id)->first();
+            if (!$alumno) {
+                \Log::error('Alumno no encontrado con ID: ' . $id);
+                return redirect('/solicitud')
+                           ->with('error', 'Alumno no encontrado');
+            }
+            
+            \Log::info('Alumno encontrado:', (array)$alumno);
+
+            // Validación completa paso a paso
+            $rules = [
+                // Datos personales
+                'nombre' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
+                'apellido_p' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
+                'apellido_m' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
+                'correo_institucional' => 'required|email|max:255|ends_with:@cbta256.edu.mx',
+                'telefono' => 'required|digits:10',
+                'edad_id' => 'required|integer|exists:edad,id',
+                'sexo_id' => 'required|integer|exists:sexo,id',
+                
+                // Ubicación
+                'ubicacion_estados_id' => 'required|integer|exists:estados,id',
+                'ubicacion_localidad' => 'required|string|max:100|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\.\-\,0-9]+$/',
+                'ubicacion_cp' => 'required|digits:5',
+                'ubicacion_municipios_id' => 'required|integer|exists:municipios,id',
+                
+                // Escolaridad
+                'escolaridad_numero_control' => 'required|string|max:14|regex:/^[0-9]{8,14}$/',
+                'escolaridad_meses_servicio' => 'required|integer|min:1|max:12',
+                'escolaridad_modalidad_id' => 'required|integer|exists:modalidad,id',
+                'escolaridad_carreras_id' => 'required|integer|exists:carreras,id',
+                'escolaridad_semestres_id' => 'required|integer|exists:semestres,id',
+                'escolaridad_grupos_id' => 'required|integer|exists:grupos,id',
+                
+                // Programa
+                'programa_instituciones_id' => 'required',
+                'programa_nombre_programa' => 'required|string|max:255|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\.\-\,]+$/',
+                'programa_encargado_nombre' => 'required|string|max:100|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\.\-]+$/',
+                'programa_titulos_id' => 'required|integer|exists:titulos,id',
+                'programa_puesto_encargado' => 'required|string|max:100|regex:/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\.\,\-\/]+$//',
+                'programa_telefono_institucion' => 'required|digits:10',
+                'programa_metodo_servicio_id' => 'required|integer|exists:metodo_servicio,id',
+                'programa_fecha_inicio' => 'required|date|after_or_equal:2020-01-01|before_or_equal:2030-12-31',
+                'programa_fecha_final' => 'required|date|after:programa_fecha_inicio|before_or_equal:2030-12-31',
+    'programa_tipos_programa_id' => 'required', // Quitar |exists:tipos_programa,id
+    
+    // Campos opcionales
+    'programa_otra_institucion' => 'nullable|string|max:255',
+    'programa_otro_programa' => 'nullable|string|max:255',
+];
+
+$messages = [
+                // Datos personales
+                'nombre.required' => 'El nombre es obligatorio',
+                'nombre.regex' => 'El nombre solo puede contener letras y espacios',
+                'apellido_p.required' => 'El apellido paterno es obligatorio',
+                'apellido_p.regex' => 'El apellido paterno solo puede contener letras y espacios',
+                'apellido_m.required' => 'El apellido materno es obligatorio',
+                'apellido_m.regex' => 'El apellido materno solo puede contener letras y espacios',
+                'correo_institucional.required' => 'El correo institucional es obligatorio',
+                'correo_institucional.email' => 'Ingrese un correo electrónico válido',
+                'correo_institucional.ends_with' => 'El correo debe terminar en @cbta256.edu.mx',
+                'telefono.required' => 'El teléfono es obligatorio',
+                'telefono.digits' => 'El teléfono debe tener exactamente 10 dígitos',
+                'edad_id.required' => 'Seleccione una edad',
+                'edad_id.exists' => 'La edad seleccionada no es válida',
+                'sexo_id.required' => 'Seleccione el sexo',
+                'sexo_id.exists' => 'El sexo seleccionado no es válido',
+                
+                // Ubicación
+                'ubicacion_estados_id.required' => 'Seleccione un estado',
+                'ubicacion_estados_id.exists' => 'El estado seleccionado no es válido',
+                'ubicacion_localidad.required' => 'La localidad es obligatoria',
+                'ubicacion_localidad.regex' => 'La localidad contiene caracteres no válidos',
+                'ubicacion_cp.required' => 'El código postal es obligatorio',
+                'ubicacion_cp.digits' => 'El código postal debe tener 5 dígitos',
+                'ubicacion_municipios_id.required' => 'Seleccione un municipio',
+                'ubicacion_municipios_id.exists' => 'El municipio seleccionado no es válido',
+                
+                // Escolaridad
+                'escolaridad_numero_control.required' => 'El número de control es obligatorio',
+                'escolaridad_numero_control.regex' => 'El número de control debe tener entre 8 y 14 dígitos',
+                'escolaridad_meses_servicio.required' => 'Los meses de servicio son obligatorios',
+                'escolaridad_meses_servicio.min' => 'Mínimo 1 mes de servicio',
+                'escolaridad_meses_servicio.max' => 'Máximo 12 meses de servicio',
+                'escolaridad_modalidad_id.required' => 'Seleccione una modalidad',
+                'escolaridad_modalidad_id.exists' => 'La modalidad seleccionada no es válida',
+                'escolaridad_carreras_id.required' => 'Seleccione una carrera',
+                'escolaridad_carreras_id.exists' => 'La carrera seleccionada no es válida',
+                'escolaridad_semestres_id.required' => 'Seleccione un semestre',
+                'escolaridad_semestres_id.exists' => 'El semestre seleccionado no es válido',
+                'escolaridad_grupos_id.required' => 'Seleccione un grupo',
+                'escolaridad_grupos_id.exists' => 'El grupo seleccionado no es válido',
+                
+                // Programa
+                'programa_instituciones_id.required' => 'Seleccione una institución',
+                'programa_instituciones_id.exists' => 'La institución seleccionada no es válida',
+                'programa_nombre_programa.required' => 'El nombre del programa es obligatorio',
+                'programa_nombre_programa.regex' => 'El nombre del programa contiene caracteres no válidos',
+                'programa_encargado_nombre.required' => 'El nombre del encargado es obligatorio',
+                'programa_encargado_nombre.regex' => 'El nombre del encargado solo puede contener letras y espacios',
+                'programa_titulos_id.required' => 'Seleccione un título',
+                'programa_titulos_id.exists' => 'El título seleccionado no es válido',
+                'programa_puesto_encargado.required' => 'El puesto del encargado es obligatorio',
+                'programa_puesto_encargado.regex' => 'El puesto del encargado contiene caracteres no válidos',
+                'programa_telefono_institucion.required' => 'El teléfono de la institución es obligatorio',
+                'programa_telefono_institucion.digits' => 'El teléfono debe tener exactamente 10 dígitos',
+                'programa_metodo_servicio_id.required' => 'Seleccione un método de servicio',
+                'programa_metodo_servicio_id.exists' => 'El método de servicio seleccionado no es válido',
+                'programa_fecha_inicio.required' => 'La fecha de inicio es obligatoria',
+                'programa_fecha_inicio.date' => 'Ingrese una fecha válida',
+                'programa_fecha_inicio.after_or_equal' => 'La fecha de inicio no puede ser anterior a 2020',
+                'programa_fecha_inicio.before_or_equal' => 'La fecha de inicio no puede ser posterior a 2030',
+                'programa_fecha_final.required' => 'La fecha final es obligatoria',
+                'programa_fecha_final.date' => 'Ingrese una fecha válida',
+                'programa_fecha_final.after' => 'La fecha final debe ser posterior a la fecha de inicio',
+                'programa_fecha_final.before_or_equal' => 'La fecha final no puede ser posterior a 2030',
+                'programa_tipos_programa_id.required' => 'Seleccione un tipo de programa',
+                'programa_tipos_programa_id.exists' => 'El tipo de programa seleccionado no es válido',
+            ];
+
+            // Agregar después de la validación básica:
+
+            // Validaciones condicionales personalizadas
+            if ($request->programa_instituciones_id === 'otra' && empty(trim($request->programa_otra_institucion))) {
+                throw new \Illuminate\Validation\ValidationException(
+                    validator([], []),
+                    ['programa_otra_institucion' => ['Debe especificar el nombre de la institución']]
+                );
+            }
+
+            if ($request->programa_tipos_programa_id === '0' && empty(trim($request->programa_otro_programa))) {
+                throw new \Illuminate\Validation\ValidationException(
+                    validator([], []),
+                    ['programa_otro_programa' => ['Debe especificar el tipo de programa']]
+                );
+            }
+
+            // Validar que instituciones_id existe si no es "otra"
+            if ($request->programa_instituciones_id !== 'otra') {
+                $institucionExiste = DB::table('instituciones')->where('id', $request->programa_instituciones_id)->exists();
+                if (!$institucionExiste) {
+                    throw new \Illuminate\Validation\ValidationException(
+                        validator([], []),
+                        ['programa_instituciones_id' => ['La institución seleccionada no es válida']]
+                    );
+                }
+            }
+
+            // Validar que tipos_programa_id existe si no es "0"
+            if ($request->programa_tipos_programa_id !== '0') {
+                $tipoExiste = DB::table('tipos_programa')->where('id', $request->programa_tipos_programa_id)->exists();
+                if (!$tipoExiste) {
+                    throw new \Illuminate\Validation\ValidationException(
+                        validator([], []),
+                        ['programa_tipos_programa_id' => ['El tipo de programa seleccionado no es válido']]
+                    );
+                }
+            }
+
+            \Log::info('Iniciando validación...');
+            $validatedData = $request->validate($rules, $messages);
+            \Log::info('Validación exitosa');
+
+            // Ejecutar transacción
+            DB::transaction(function() use ($request, $id) {
+                
+                // 1. Actualizar datos del alumno
+                $alumnoData = [
+                    'correo_institucional' => trim($request->correo_institucional),
+                    'apellido_p' => trim($request->apellido_p),
+                    'apellido_m' => trim($request->apellido_m),
+                    'nombre' => trim($request->nombre),
+                    'telefono' => $request->telefono,
+                    'fecha_registro' => now()->setTimezone('America/Mexico_City'),
+                    'sexo_id' => $request->sexo_id,
+                    'status_id' => 1,
+                    'edad_id' => $request->edad_id,
+                    'rol_id' => 1,
+                ];
+
+                \Log::info('Actualizando alumno con datos:', $alumnoData);
+                $result1 = DB::table('alumno')->where('id', $id)->update($alumnoData);
+                \Log::info('Filas actualizadas en alumno: ' . $result1);
+
+                // 2. Actualizar/Insertar ubicación
+                $ubicacionData = [
+                   'alumno_id' => $id,
+    'localidad' => trim($request->ubicacion_localidad),
+    'cp' => $request->ubicacion_cp,
+    'municipios_id' => $request->ubicacion_municipios_id,
+                ];
+
+                // Si existe el campo estado_id en la tabla ubicaciones, agregarlo
+                if (Schema::hasColumn('ubicaciones', 'estado_id')) {
+                    $ubicacionData['estado_id'] = $request->ubicacion_estados_id;
+                }
+
+                \Log::info('Datos de ubicación a actualizar:', $ubicacionData);
+
+                $ubicacionExistente = DB::table('ubicaciones')->where('alumno_id', $id)->first();
+                if ($ubicacionExistente) {
+                    $result2 = DB::table('ubicaciones')->where('alumno_id', $id)->update($ubicacionData);
+                    \Log::info('Ubicación actualizada: ' . $result2);
+                } else {
+                    DB::table('ubicaciones')->insert($ubicacionData);
+                    \Log::info('Ubicación creada');
+                }
+
+                // 3. Actualizar/Insertar escolaridad
+                $escolaridadData = [
+                    'alumno_id' => $id,
+                    'numero_control' => $request->escolaridad_numero_control,
+                    'meses_servicio' => $request->escolaridad_meses_servicio,
+                    'modalidad_id' => $request->escolaridad_modalidad_id,
+                    'carreras_id' => $request->escolaridad_carreras_id,
+                    'semestres_id' => $request->escolaridad_semestres_id,
+                    'grupos_id' => $request->escolaridad_grupos_id,
+                ];
+
+                $escolaridadExistente = DB::table('escolaridad_alumno')->where('alumno_id', $id)->first();
+                if ($escolaridadExistente) {
+                    $result3 = DB::table('escolaridad_alumno')->where('alumno_id', $id)->update($escolaridadData);
+                    \Log::info('Escolaridad actualizada: ' . $result3);
+                } else {
+                    DB::table('escolaridad_alumno')->insert($escolaridadData);
+                    \Log::info('Escolaridad creada');
+                }
+
+                // 4. Actualizar/Insertar programa - CORREGIDO
+                $institucionId = $request->programa_instituciones_id;
+$otraInstitucion = null;
+
+// Manejar institución personalizada
+if ($request->programa_instituciones_id === '12') {
+    if (empty($request->programa_otra_institucion)) {
+        throw new \Exception('Debe especificar el nombre de la institución');
+    }
+    $institucionId = 12; // ID 12 para "otras"
+    $otraInstitucion = trim($request->programa_otra_institucion);
+} else {
+    $otraInstitucion = null;
+}
+
+$tipoProgramaId = $request->programa_tipos_programa_id;
+$otroPrograma = null;
+
+// Manejar tipo de programa personalizado
+if ($request->programa_tipos_programa_id === '7') {
+    if (empty($request->programa_otro_programa)) {
+        throw new \Exception('Debe especificar el tipo de programa');
+    }
+    $tipoProgramaId = 7; // ID 7 para "otros"
+    $otroPrograma = trim($request->programa_otro_programa);
+} else {
+    $otroPrograma = null;
+}
+
+$programaData = [
+    'alumno_id' => $id,
+    'instituciones_id' => $institucionId, // Ahora será 12 si es "otra"
+    'otra_institucion' => $otraInstitucion, // El nombre de la institución se guarda aquí
+    'nombre_programa' => trim($request->programa_nombre_programa),
+    'encargado_nombre' => trim($request->programa_encargado_nombre),
+    'titulos_id' => $request->programa_titulos_id,
+    'puesto_encargado' => trim($request->programa_puesto_encargado),
+    'telefono_institucion' => $request->programa_telefono_institucion,
+    'metodo_servicio_id' => $request->programa_metodo_servicio_id,
+    'fecha_inicio' => $request->programa_fecha_inicio,
+    'fecha_final' => $request->programa_fecha_final,
+    'tipos_programa_id' => $tipoProgramaId,
+    'otro_programa' => $otroPrograma,
+];
+
+\Log::info('Datos del programa a actualizar:', $programaData);
+
+$programaExistente = DB::table('programa_servicio_social')->where('alumno_id', $id)->first();
+if ($programaExistente) {
+    $result4 = DB::table('programa_servicio_social')->where('alumno_id', $id)->update($programaData);
+    \Log::info('Programa actualizado: ' . $result4);
+} else {
+    DB::table('programa_servicio_social')->insert($programaData);
+    \Log::info('Programa creado');
+}
+
+            \Log::info('Transacción completada exitosamente');
+        });
+
+        \Log::info('Redirigiendo a página de éxito...');
+        return redirect('/actualizacion-exitosa')
+               ->with('success', 'Tu información ha sido actualizada exitosamente')
+               ->with('alumno_nombre', $request->nombre . ' ' . $request->apellido_p)
+               ->with('alumno_id', $id);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        \Log::error('Error de validación:', $e->errors());
+        return redirect()->back()
+               ->withErrors($e->errors())
+               ->withInput()
+               ->with('error', 'Por favor corrige los errores del formulario');
+    
+    } catch (\Exception $e) {
+        \Log::error('Error general:', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return redirect()->back()
+               ->with('error', 'Error al actualizar: ' . $e->getMessage())
+               ->withInput();
+    }
+}
+
+public function guardarTodo(Request $request)
     {
         \Log::info('MÉTODO GUARDARTODO INICIADO');
         \Log::info('Datos recibidos: ', $request->all());
@@ -438,40 +842,54 @@ class FormularioController extends Controller
             }
 
             $alumno = null;
-
+            
             // Buscar por folio + número de control
             if (!empty($folio) && !empty($numeroControl)) {
                 $alumno = DB::table('alumno')
-                    ->leftJoin('escolaridad_alumno', 'alumno.id', '=', 'escolaridad_alumno.alumno_id') // ✅ CORREGIR TABLA
-                    ->where('alumno.id', $folio)
-                    ->where('escolaridad_alumno.numero_control', $numeroControl)
-                    ->select('alumno.*', 'escolaridad_alumno.numero_control')
-                    ->first();
+                ->leftJoin('escolaridad_alumno', 'alumno.id', '=', 'escolaridad_alumno.alumno_id')
+                ->where('alumno.id', $folio)
+                ->where('escolaridad_alumno.numero_control', $numeroControl)
+                ->select('alumno.*', 'escolaridad_alumno.numero_control')
+                ->first();
             }
             
             // Si no se encontró por folio + número de control, buscar por folio + correo
             if (!$alumno && !empty($folio) && !empty($correo)) {
                 $alumno = DB::table('alumno')
-                    ->leftJoin('escolaridad_alumno', 'alumno.id', '=', 'escolaridad_alumno.alumno_id') // ✅ CORREGIR TABLA
-                    ->where('alumno.id', $folio)
-                    ->where('alumno.correo_institucional', $correo)
-                    ->select('alumno.*', 'escolaridad_alumno.numero_control')
-                    ->first();
+                ->leftJoin('escolaridad_alumno', 'alumno.id', '=', 'escolaridad_alumno.alumno_id')
+                ->where('alumno.id', $folio)
+                ->where('alumno.correo_institucional', $correo)
+                ->select('alumno.*', 'escolaridad_alumno.numero_control')
+                ->first();
             }
 
             if (!$alumno) {
                 return redirect('/solicitud')->with('error', 'No se encontró ningún registro con los datos proporcionados. Verifique que el FOLIO + (Matrícula O Correo) sean correctos.');
             }
 
-            // Redirigir al formulario de edición con el ID del alumno encontrado
-            return redirect()->route('alumno.edit', $alumno->id);
+            // ✅ AUTENTICAR AL ALUMNO EN LA SESIÓN
+            Session::put('alumno_autenticado', true);
+            Session::put('alumno_id', $alumno->id);
+            Session::put('alumno_nombre', $alumno->nombre . ' ' . $alumno->apellido_p . ' ' . $alumno->apellido_m);
+            
+            // Generar un token único para esta sesión (opcional, para mayor seguridad)
+            $token = bin2hex(random_bytes(32));
+            Session::put('alumno_token', $token);
+            
+            \Log::info('Alumno autenticado correctamente:', [
+                'id' => $alumno->id,
+                'nombre' => Session::get('alumno_nombre')
+            ]);
 
-    } catch (\Exception $e) {
-        \Log::error('Error en buscarRegistro: ' . $e->getMessage());
-        \Log::error('Stack trace: ' . $e->getTraceAsString());
-        return redirect('/solicitud')->with('error', 'Ocurrió un error al buscar el registro. Intente nuevamente.');
+            // Redirigir al formulario de edición SIN exponer el ID
+            return redirect()->route('alumno.edit');
+
+        } catch (\Exception $e) {
+            \Log::error('Error en buscarRegistro: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            return redirect('/solicitud')->with('error', 'Ocurrió un error al buscar el registro. Intente nuevamente.');
+        }
     }
-}
 
     private function obtenerDatosCompletos($alumnoId)
     {
@@ -536,421 +954,9 @@ class FormularioController extends Controller
             ];
         }
     }
-
-    public function editarAlumnoPublico($id)
-    {
-        try {
-            // Buscar el alumno
-            $alumno = DB::table('alumno')->where('id', $id)->first();
-            if (!$alumno) {
-                return redirect('/solicitud')->with('error', 'Alumno no encontrado');
-            }
-
-            // Obtener datos relacionados CON JOINS para obtener nombres
-            $ubicacion = DB::table('ubicaciones')
-                ->leftJoin('municipios', 'ubicaciones.municipios_id', '=', 'municipios.id')
-                ->leftJoin('estados', 'municipios.estado_id', '=', 'estados.id')
-                ->where('ubicaciones.alumno_id', $id)
-                ->select(
-                    'ubicaciones.*',
-                    'municipios.nombre as municipio_nombre',
-                    'municipios.estado_id as estado_id',
-                    'estados.nombre as estado_nombre'
-                )
-                ->first();
-
-            \Log::info('Datos de ubicación encontrados:', (array)$ubicacion);
-
-            $escolaridad = DB::table('escolaridad_alumno')->where('alumno_id', $id)->first();
-            $programa = DB::table('programa_servicio_social')->where('alumno_id', $id)->first();
-
-            // Obtener opciones para los selects
-            $foreignOptions = [
-                'edad_id' => DB::table('edad')->orderBy('edades')->get(),
-                'sexo_id' => DB::table('sexo')->orderBy('tipo')->get(),
-                'modalidad_id' => DB::table('modalidad')->orderBy('nombre')->get(),
-                'carreras_id' => DB::table('carreras')->orderBy('nombre')->get(),
-                'semestres_id' => DB::table('semestres')->orderBy('nombre')->get(),
-                'grupos_id' => DB::table('grupos')->orderBy('letra')->get(),
-                'instituciones_id' => DB::table('instituciones')->orderBy('nombre')->get(),
-                'titulos_id' => DB::table('titulos')->orderBy('titulo')->get(),
-                'metodo_servicio_id' => DB::table('metodo_servicio')->orderBy('metodo')->get(),
-                'tipos_programa_id' => DB::table('tipos_programa')->orderBy('tipo')->get(),
-                'estados_id' => DB::table('estados')->orderBy('nombre')->get(),
-                'municipios_id' => DB::table('municipios')->orderBy('nombre')->get(),
-            ];
-
-            // Si hay ubicación, obtener municipios del estado actual
-            if ($ubicacion && $ubicacion->estado_id) {
-                $foreignOptions['municipios_del_estado'] = DB::table('municipios')
-                    ->where('estado_id', $ubicacion->estado_id)
-                    ->orderBy('nombre')
-                    ->get();
-            } else {
-                $foreignOptions['municipios_del_estado'] = collect();
-            }
-
-            \Log::info('Enviando datos a la vista:', [
-                'alumno_id' => $alumno->id,
-                'estado_id' => $ubicacion->estado_id ?? 'null',
-                'municipio_id' => $ubicacion->municipios_id ?? 'null',
-                'municipios_disponibles' => $foreignOptions['municipios_del_estado']->count()
-            ]);
-
-            return view('alumno-edit-publico', compact(
-                'alumno', 
-                'ubicacion', 
-                'escolaridad', 
-                'programa', 
-                'foreignOptions'
-            ));
-
-        } catch (\Exception $e) {
-            \Log::error('Error al cargar formulario de edición pública:', [
-                'alumno_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return redirect('/solicitud')->with('error', 'Error al cargar el formulario');
-        }
-    }
-    public function actualizarAlumnoPublico(Request $request, $id)
-    {
-        // Debug inicial
-        \Log::info('=== INICIO ACTUALIZACIÓN PÚBLICA ===');
-        \Log::info('ID del alumno: ' . $id);
-        \Log::info('Método HTTP: ' . $request->method());
-        \Log::info('URL completa: ' . $request->fullUrl());
-        \Log::info('Datos recibidos:', $request->all());
-        
-        try {
-            // Verificar que el alumno existe ANTES de la validación
-            $alumno = DB::table('alumno')->where('id', $id)->first();
-            if (!$alumno) {
-                \Log::error('Alumno no encontrado con ID: ' . $id);
-                return redirect('/solicitud')
-                           ->with('error', 'Alumno no encontrado');
-            }
-            
-            \Log::info('Alumno encontrado:', (array)$alumno);
-
-            // Validación completa paso a paso
-            $rules = [
-                // Datos personales
-                'nombre' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
-                'apellido_p' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
-                'apellido_m' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
-                'correo_institucional' => 'required|email|max:255|ends_with:@cbta256.edu.mx',
-                'telefono' => 'required|digits:10',
-                'edad_id' => 'required|integer|exists:edad,id',
-                'sexo_id' => 'required|integer|exists:sexo,id',
-                
-                // Ubicación
-                'ubicacion_estados_id' => 'required|integer|exists:estados,id',
-                'ubicacion_localidad' => 'required|string|max:100|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\.\-\,0-9]+$/',
-                'ubicacion_cp' => 'required|digits:5',
-                'ubicacion_municipios_id' => 'required|integer|exists:municipios,id',
-                
-                // Escolaridad
-                'escolaridad_numero_control' => 'required|string|max:14|regex:/^[0-9]{8,14}$/',
-                'escolaridad_meses_servicio' => 'required|integer|min:1|max:12',
-                'escolaridad_modalidad_id' => 'required|integer|exists:modalidad,id',
-                'escolaridad_carreras_id' => 'required|integer|exists:carreras,id',
-                'escolaridad_semestres_id' => 'required|integer|exists:semestres,id',
-                'escolaridad_grupos_id' => 'required|integer|exists:grupos,id',
-                
-                // Programa
-                'programa_instituciones_id' => 'required',
-                'programa_nombre_programa' => 'required|string|max:255|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\.\-\,]+$/',
-                'programa_encargado_nombre' => 'required|string|max:100|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\.\-]+$/',
-                'programa_titulos_id' => 'required|integer|exists:titulos,id',
-                'programa_puesto_encargado' => 'required|string|max:100|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\.\-]+$/',
-                'programa_telefono_institucion' => 'required|digits:10',
-                'programa_metodo_servicio_id' => 'required|integer|exists:metodo_servicio,id',
-                'programa_fecha_inicio' => 'required|date|after_or_equal:2020-01-01|before_or_equal:2030-12-31',
-                'programa_fecha_final' => 'required|date|after:programa_fecha_inicio|before_or_equal:2030-12-31',
-                'programa_tipos_programa_id' => 'required', // Quitar |exists:tipos_programa,id
-                
-                // Campos opcionales
-                'programa_otra_institucion' => 'nullable|string|max:255',
-                'programa_otro_programa' => 'nullable|string|max:255',
-
-                // Ubicación (actualizar estos mensajes)
-'ubicacion_estados_id.required' => 'Seleccione un estado',
-'ubicacion_estados_id.exists' => 'El estado seleccionado no es válido',
-'ubicacion_localidad.required' => 'La localidad es obligatoria',
-'ubicacion_localidad.regex' => 'La localidad contiene caracteres no válidos',
-'ubicacion_cp.required' => 'El código postal es obligatorio',
-'ubicacion_cp.digits' => 'El código postal debe tener 5 dígitos',
-'ubicacion_municipios_id.required' => 'Seleccione un municipio',
-'ubicacion_municipios_id.exists' => 'El municipio seleccionado no es válido',
-            ];
-
-            $messages = [
-                // Datos personales
-                'nombre.required' => 'El nombre es obligatorio',
-                'nombre.regex' => 'El nombre solo puede contener letras y espacios',
-                'apellido_p.required' => 'El apellido paterno es obligatorio',
-                'apellido_p.regex' => 'El apellido paterno solo puede contener letras y espacios',
-                'apellido_m.required' => 'El apellido materno es obligatorio',
-                'apellido_m.regex' => 'El apellido materno solo puede contener letras y espacios',
-                'correo_institucional.required' => 'El correo institucional es obligatorio',
-                'correo_institucional.email' => 'Ingrese un correo electrónico válido',
-                'correo_institucional.ends_with' => 'El correo debe terminar en @cbta256.edu.mx',
-                'telefono.required' => 'El teléfono es obligatorio',
-                'telefono.digits' => 'El teléfono debe tener exactamente 10 dígitos',
-                'edad_id.required' => 'Seleccione una edad',
-                'edad_id.exists' => 'La edad seleccionada no es válida',
-                'sexo_id.required' => 'Seleccione el sexo',
-                'sexo_id.exists' => 'El sexo seleccionado no es válido',
-                
-                // Ubicación
-                'ubicacion_estados_id.required' => 'Seleccione un estado',
-                'ubicacion_estados_id.exists' => 'El estado seleccionado no es válido',
-                'ubicacion_localidad.required' => 'La localidad es obligatoria',
-                'ubicacion_localidad.regex' => 'La localidad contiene caracteres no válidos',
-                'ubicacion_cp.required' => 'El código postal es obligatorio',
-                'ubicacion_cp.digits' => 'El código postal debe tener 5 dígitos',
-                'ubicacion_municipios_id.required' => 'Seleccione un municipio',
-                'ubicacion_municipios_id.exists' => 'El municipio seleccionado no es válido',
-                
-                // Escolaridad
-                'escolaridad_numero_control.required' => 'El número de control es obligatorio',
-                'escolaridad_numero_control.regex' => 'El número de control debe tener entre 8 y 14 dígitos',
-                'escolaridad_meses_servicio.required' => 'Los meses de servicio son obligatorios',
-                'escolaridad_meses_servicio.min' => 'Mínimo 1 mes de servicio',
-                'escolaridad_meses_servicio.max' => 'Máximo 12 meses de servicio',
-                'escolaridad_modalidad_id.required' => 'Seleccione una modalidad',
-                'escolaridad_modalidad_id.exists' => 'La modalidad seleccionada no es válida',
-                'escolaridad_carreras_id.required' => 'Seleccione una carrera',
-                'escolaridad_carreras_id.exists' => 'La carrera seleccionada no es válida',
-                'escolaridad_semestres_id.required' => 'Seleccione un semestre',
-                'escolaridad_semestres_id.exists' => 'El semestre seleccionado no es válido',
-                'escolaridad_grupos_id.required' => 'Seleccione un grupo',
-                'escolaridad_grupos_id.exists' => 'El grupo seleccionado no es válido',
-                
-                // Programa
-                'programa_instituciones_id.required' => 'Seleccione una institución',
-                'programa_instituciones_id.exists' => 'La institución seleccionada no es válida',
-                'programa_nombre_programa.required' => 'El nombre del programa es obligatorio',
-                'programa_nombre_programa.regex' => 'El nombre del programa contiene caracteres no válidos',
-                'programa_encargado_nombre.required' => 'El nombre del encargado es obligatorio',
-                'programa_encargado_nombre.regex' => 'El nombre del encargado solo puede contener letras y espacios',
-                'programa_titulos_id.required' => 'Seleccione un título',
-                'programa_titulos_id.exists' => 'El título seleccionado no es válido',
-                'programa_puesto_encargado.required' => 'El puesto del encargado es obligatorio',
-                'programa_puesto_encargado.regex' => 'El puesto del encargado contiene caracteres no válidos',
-                'programa_telefono_institucion.required' => 'El teléfono de la institución es obligatorio',
-                'programa_telefono_institucion.digits' => 'El teléfono debe tener exactamente 10 dígitos',
-                'programa_metodo_servicio_id.required' => 'Seleccione un método de servicio',
-                'programa_metodo_servicio_id.exists' => 'El método de servicio seleccionado no es válido',
-                'programa_fecha_inicio.required' => 'La fecha de inicio es obligatoria',
-                'programa_fecha_inicio.date' => 'Ingrese una fecha válida',
-                'programa_fecha_inicio.after_or_equal' => 'La fecha de inicio no puede ser anterior a 2020',
-                'programa_fecha_inicio.before_or_equal' => 'La fecha de inicio no puede ser posterior a 2030',
-                'programa_fecha_final.required' => 'La fecha final es obligatoria',
-                'programa_fecha_final.date' => 'Ingrese una fecha válida',
-                'programa_fecha_final.after' => 'La fecha final debe ser posterior a la fecha de inicio',
-                'programa_fecha_final.before_or_equal' => 'La fecha final no puede ser posterior a 2030',
-                'programa_tipos_programa_id.required' => 'Seleccione un tipo de programa',
-                'programa_tipos_programa_id.exists' => 'El tipo de programa seleccionado no es válido',
-            ];
-
-            // Agregar después de la validación básica:
-
-            // Validaciones condicionales personalizadas
-            if ($request->programa_instituciones_id === 'otra' && empty(trim($request->programa_otra_institucion))) {
-                throw new \Illuminate\Validation\ValidationException(
-                    validator([], []),
-                    ['programa_otra_institucion' => ['Debe especificar el nombre de la institución']]
-                );
-            }
-
-            if ($request->programa_tipos_programa_id === '0' && empty(trim($request->programa_otro_programa))) {
-                throw new \Illuminate\Validation\ValidationException(
-                    validator([], []),
-                    ['programa_otro_programa' => ['Debe especificar el tipo de programa']]
-                );
-            }
-
-            // Validar que instituciones_id existe si no es "otra"
-            if ($request->programa_instituciones_id !== 'otra') {
-                $institucionExiste = DB::table('instituciones')->where('id', $request->programa_instituciones_id)->exists();
-                if (!$institucionExiste) {
-                    throw new \Illuminate\Validation\ValidationException(
-                        validator([], []),
-                        ['programa_instituciones_id' => ['La institución seleccionada no es válida']]
-                    );
-                }
-            }
-
-            // Validar que tipos_programa_id existe si no es "0"
-            if ($request->programa_tipos_programa_id !== '0') {
-                $tipoExiste = DB::table('tipos_programa')->where('id', $request->programa_tipos_programa_id)->exists();
-                if (!$tipoExiste) {
-                    throw new \Illuminate\Validation\ValidationException(
-                        validator([], []),
-                        ['programa_tipos_programa_id' => ['El tipo de programa seleccionado no es válido']]
-                    );
-                }
-            }
-
-            \Log::info('Iniciando validación...');
-            $validatedData = $request->validate($rules, $messages);
-            \Log::info('Validación exitosa');
-
-            // Ejecutar transacción
-            DB::transaction(function() use ($request, $id) {
-                
-                // 1. Actualizar datos del alumno
-                $alumnoData = [
-                    'correo_institucional' => trim($request->correo_institucional),
-                    'apellido_p' => trim($request->apellido_p),
-                    'apellido_m' => trim($request->apellido_m),
-                    'nombre' => trim($request->nombre),
-                    'telefono' => $request->telefono,
-                    'fecha_registro' => now()->setTimezone('America/Mexico_City'),
-                    'sexo_id' => $request->sexo_id,
-                    'status_id' => 1,
-                    'edad_id' => $request->edad_id,
-                    'rol_id' => 1,
-                ];
-
-                \Log::info('Actualizando alumno con datos:', $alumnoData);
-                $result1 = DB::table('alumno')->where('id', $id)->update($alumnoData);
-                \Log::info('Filas actualizadas en alumno: ' . $result1);
-
-                // 2. Actualizar/Insertar ubicación
-                $ubicacionData = [
-                   'alumno_id' => $id,
-    'localidad' => trim($request->ubicacion_localidad),
-    'cp' => $request->ubicacion_cp,
-    'municipios_id' => $request->ubicacion_municipios_id,
-                ];
-
-                // Si existe el campo estado_id en la tabla ubicaciones, agregarlo
-                if (Schema::hasColumn('ubicaciones', 'estado_id')) {
-                    $ubicacionData['estado_id'] = $request->ubicacion_estados_id;
-                }
-
-                \Log::info('Datos de ubicación a actualizar:', $ubicacionData);
-
-                $ubicacionExistente = DB::table('ubicaciones')->where('alumno_id', $id)->first();
-                if ($ubicacionExistente) {
-                    $result2 = DB::table('ubicaciones')->where('alumno_id', $id)->update($ubicacionData);
-                    \Log::info('Ubicación actualizada: ' . $result2);
-                } else {
-                    DB::table('ubicaciones')->insert($ubicacionData);
-                    \Log::info('Ubicación creada');
-                }
-
-                // 3. Actualizar/Insertar escolaridad
-                $escolaridadData = [
-                    'alumno_id' => $id,
-                    'numero_control' => $request->escolaridad_numero_control,
-                    'meses_servicio' => $request->escolaridad_meses_servicio,
-                    'modalidad_id' => $request->escolaridad_modalidad_id,
-                    'carreras_id' => $request->escolaridad_carreras_id,
-                    'semestres_id' => $request->escolaridad_semestres_id,
-                    'grupos_id' => $request->escolaridad_grupos_id,
-                ];
-
-                $escolaridadExistente = DB::table('escolaridad_alumno')->where('alumno_id', $id)->first();
-                if ($escolaridadExistente) {
-                    $result3 = DB::table('escolaridad_alumno')->where('alumno_id', $id)->update($escolaridadData);
-                    \Log::info('Escolaridad actualizada: ' . $result3);
-                } else {
-                    DB::table('escolaridad_alumno')->insert($escolaridadData);
-                    \Log::info('Escolaridad creada');
-                }
-
-                // 4. Actualizar/Insertar programa - CORREGIDO
-                $institucionId = $request->programa_instituciones_id;
-$otraInstitucion = null;
-
-// Manejar institución personalizada
-if ($request->programa_instituciones_id === '12') {
-    if (empty($request->programa_otra_institucion)) {
-        throw new \Exception('Debe especificar el nombre de la institución');
-    }
-    $institucionId = 12; // ID 12 para "otras"
-    $otraInstitucion = trim($request->programa_otra_institucion);
-} else {
-    $otraInstitucion = null;
 }
 
-$tipoProgramaId = $request->programa_tipos_programa_id;
-$otroPrograma = null;
 
-// Manejar tipo de programa personalizado
-if ($request->programa_tipos_programa_id === '7') {
-    if (empty($request->programa_otro_programa)) {
-        throw new \Exception('Debe especificar el tipo de programa');
-    }
-    $tipoProgramaId = 7; // ID 7 para "otros"
-    $otroPrograma = trim($request->programa_otro_programa);
-} else {
-    $otroPrograma = null;
-}
-
-$programaData = [
-    'alumno_id' => $id,
-    'instituciones_id' => $institucionId, // Ahora será 12 si es "otra"
-    'otra_institucion' => $otraInstitucion, // El nombre de la institución se guarda aquí
-    'nombre_programa' => trim($request->programa_nombre_programa),
-    'encargado_nombre' => trim($request->programa_encargado_nombre),
-    'titulos_id' => $request->programa_titulos_id,
-    'puesto_encargado' => trim($request->programa_puesto_encargado),
-    'telefono_institucion' => $request->programa_telefono_institucion,
-    'metodo_servicio_id' => $request->programa_metodo_servicio_id,
-    'fecha_inicio' => $request->programa_fecha_inicio,
-    'fecha_final' => $request->programa_fecha_final,
-    'tipos_programa_id' => $tipoProgramaId,
-    'otro_programa' => $otroPrograma,
-];
-
-\Log::info('Datos del programa a actualizar:', $programaData);
-
-$programaExistente = DB::table('programa_servicio_social')->where('alumno_id', $id)->first();
-if ($programaExistente) {
-    $result4 = DB::table('programa_servicio_social')->where('alumno_id', $id)->update($programaData);
-    \Log::info('Programa actualizado: ' . $result4);
-} else {
-    DB::table('programa_servicio_social')->insert($programaData);
-    \Log::info('Programa creado');
-}
-
-                \Log::info('Transacción completada exitosamente');
-            });
-
-            \Log::info('Redirigiendo a página de éxito...');
-            return redirect('/actualizacion-exitosa')
-                   ->with('success', 'Tu información ha sido actualizada exitosamente')
-                   ->with('alumno_nombre', $request->nombre . ' ' . $request->apellido_p)
-                   ->with('alumno_id', $id);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            \Log::error('Error de validación:', $e->errors());
-            return redirect()->back()
-                   ->withErrors($e->errors())
-                   ->withInput()
-                   ->with('error', 'Por favor corrige los errores del formulario');
-        
-        } catch (\Exception $e) {
-            \Log::error('Error general:', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return redirect()->back()
-                   ->with('error', 'Error al actualizar: ' . $e->getMessage())
-                   ->withInput();
-        }
-    }
-}
 
 
 

@@ -114,8 +114,8 @@
             @endif
 
             <!-- Formulario Responsive -->
-            <div class="bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <form action="{{ url('/alumno/' . $alumno->id . '/actualizar') }}" method="POST" id="editAlumnoForm">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <form action="{{ route('alumno.actualizar') }}" method="POST" enctype="multipart/form-data" id="editAlumnoForm">
                     @csrf
                     @method('PUT')
                     
@@ -375,7 +375,7 @@
                                         <option value="">Seleccione una institución</option>
                                         @foreach($foreignOptions['instituciones_id'] as $institucion)
                                             <option value="{{ $institucion->id }}" {{ old('programa_instituciones_id', $programa->instituciones_id ?? '') == $institucion->id ? 'selected' : '' }}>
-                                                {{ $institucion->nombre }}
+                                                {{ $institucion->id == 12 ? 'Otra' : $institucion->nombre }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -411,12 +411,14 @@
                                 </div>
 
                                 <!-- Puesto del Encargado -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Puesto del Encargado *</label>
-                                    <input type="text" name="programa_puesto_encargado" value="{{ old('programa_puesto_encargado', $programa->puesto_encargado ?? '') }}" 
-                                           class="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm" 
-                                           required maxlength="100">
-                                </div>
+                               <div>
+    <label class="block text-sm font-medium text-gray-700 mb-2">Puesto del Encargado *</label>
+    <input type="text" name="programa_puesto_encargado" value="{{ old('programa_puesto_encargado', $programa->puesto_encargado ?? '') }}" 
+           class="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm" 
+           required maxlength="100"
+           pattern="^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\.\,\-\/]+$"
+           title="Puede contener letras, números, espacios, puntos, comas y guiones">
+</div>
 
                                 <!-- Teléfono de la Institución -->
                                 <div>
@@ -462,7 +464,7 @@
                                         <option value="">Seleccione un tipo</option>
                                         @foreach($foreignOptions['tipos_programa_id'] as $tipo)
                                             <option value="{{ $tipo->id }}" {{ old('programa_tipos_programa_id', $programa->tipos_programa_id ?? '') == $tipo->id ? 'selected' : '' }}>
-                                                {{ $tipo->tipo }}
+                                                {{ $tipo->id == 7 ? 'Otro' : $tipo->tipo }}
                                             </option>
                                         @endforeach
                                     </select>

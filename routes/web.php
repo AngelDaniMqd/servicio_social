@@ -10,7 +10,7 @@ use App\Http\Controllers\RecordController;
 use App\Http\Controllers\AlumnosDescargaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AlumnosController;
-use App\Http\Controllers\AlumnoPublicoController; // ← AGREGAR ESTA LÍNEA
+use App\Http\Controllers\AlumnoPublicoController;
 
 // ==================== RUTAS PÚBLICAS CON RATE LIMITING ====================
 Route::middleware(['throttle:10,1'])->group(function () {
@@ -33,29 +33,45 @@ Route::middleware(['throttle:10,1'])->group(function () {
             return redirect('/datos-alumno')->with('error', 'Complete el formulario primero.');
         }
         
-        $alumnoId = Session::get('alumno_id');
+        $alumnoToken = Session::get('alumno_token');
         $alumnoNombre = Session::get('alumno_nombre');
         
-        return view('final', compact('alumnoId', 'alumnoNombre'));
+        return view('final', compact('alumnoToken', 'alumnoNombre'));
     })->name('final');
 
     // Vista de registro exitoso
     Route::get('/registro-exitoso', function(){
         return view('registro-exitoso', [
-            'alumnoId' => session('alumno_id', 'DEMO'),
+            'alumnoToken' => session('alumno_token', 'DEMO'),
             'alumnoNombre' => session('alumno_nombre', 'Usuario Demo'),
             'numeroControl' => session('numero_control', '12345678'),
             'programaNombre' => session('programa_nombre', 'Programa Demo')
         ]);
     })->name('registro.exitoso');
 
-    // Rutas para edición pública de alumnos
-    Route::get('/alumno/{id}/edit', [FormularioController::class, 'editarAlumnoPublico'])
-        ->where('id', '^[0-9]+$')
-        ->name('alumno.edit');
-    Route::put('/alumno/{id}/actualizar', [FormularioController::class, 'actualizarAlumnoPublico'])
-        ->where('id', '^[0-9]+$')
-        ->name('alumno.actualizar');
+    // ========== RUTAS SEGURAS CON TOKEN EN LUGAR DE ID ==========
+    Route::get('/mi-registro/editar', function() {
+        // Verificar que el usuario tenga una sesión válida
+        if (!session('alumno_autenticado') || !session('alumno_id')) {
+            return redirect('/solicitud')
+                ->with('error', 'Debe autenticarse primero para editar su registro.');
+        }
+        
+        $alumnoId = session('alumno_id');
+        return app(FormularioController::class)->editarAlumnoPublico($alumnoId);
+    })->name('alumno.edit');
+    
+    Route::middleware(['throttle:10,10'])->put('/mi-registro/actualizar', function(\Illuminate\Http\Request $request) {
+        // Verificar que el usuario tenga una sesión válida
+        if (!session('alumno_autenticado') || !session('alumno_id')) {
+            return redirect('/solicitud')
+                ->with('error', 'Debe autenticarse primero para actualizar su registro.');
+        }
+        
+        $alumnoId = session('alumno_id');
+        return app(FormularioController::class)->actualizarAlumnoPublico($request, $alumnoId);
+    })->name('alumno.actualizar');
+    
     Route::get('/actualizacion-exitosa', function() {
         return view('actualizacion-exitosa');
     })->name('actualizacion.exitosa');
@@ -70,6 +86,8 @@ Route::middleware(['throttle:5,1'])->group(function () {
     Route::post('/final-registro', [FormularioController::class, 'guardarTodo'])->name('finalizar.registro');
     Route::post('/completar-registro', [FormularioController::class, 'guardarTodo'])->name('completar.registro');
     Route::post('/procesar-registro', [FormularioController::class, 'guardarTodo'])->name('procesar.registro');
+    
+    // Ruta de búsqueda de registro - AQUÍ SE AUTENTICA EL USUARIO
     Route::post('/buscar-registro', [FormularioController::class, 'buscarRegistro'])->name('buscar.registro');
 });
 
@@ -107,34 +125,37 @@ Route::middleware(['throttle:30,1'])->group(function () {
 
 // ==================== DOCUMENTOS PÚBLICOS CON VALIDACIÓN DE SESIÓN ====================
 Route::middleware(['throttle:10,1'])->group(function () {
-    Route::get('/export/solicitud/{alumnoId}', function($alumnoId) {
-        // Validar que el usuario tenga permiso para descargar este alumno
-        if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
+    Route::get('/export/solicitud', function() {
+        if (!session('alumno_autenticado') || !session('alumno_id')) {
             abort(403, 'No tienes permiso para descargar este documento');
         }
+        $alumnoId = session('alumno_id');
         return app(FormatoController::class)->exportSolicitud($alumnoId);
-    })->where('alumnoId', '^[0-9]+$')->name('export.solicitud');
+    })->name('export.solicitud');
     
-    Route::get('/export/escolaridad/{alumnoId}', function($alumnoId) {
-        if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
+    Route::get('/export/escolaridad', function() {
+        if (!session('alumno_autenticado') || !session('alumno_id')) {
             abort(403, 'No tienes permiso para descargar este documento');
         }
+        $alumnoId = session('alumno_id');
         return app(FormatoController::class)->exportEscolaridad($alumnoId);
-    })->where('alumnoId', '^[0-9]+$')->name('export.escolaridad');
+    })->name('export.escolaridad');
     
-    Route::get('/export/programa/{alumnoId}', function($alumnoId) {
-        if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
+    Route::get('/export/programa', function() {
+        if (!session('alumno_autenticado') || !session('alumno_id')) {
             abort(403, 'No tienes permiso para descargar este documento');
         }
+        $alumnoId = session('alumno_id');
         return app(FormatoController::class)->exportPrograma($alumnoId);
-    })->where('alumnoId', '^[0-9]+$')->name('export.programa');
+    })->name('export.programa');
     
-    Route::get('/export/final/{alumnoId}', function($alumnoId) {
-        if (!session('alumno_id') || session('alumno_id') != $alumnoId) {
+    Route::get('/export/final', function() {
+        if (!session('alumno_autenticado') || !session('alumno_id')) {
             abort(403, 'No tienes permiso para descargar este documento');
         }
+        $alumnoId = session('alumno_id');
         return app(FormatoController::class)->exportReporteFinal($alumnoId);
-    })->where('alumnoId', '^[0-9]+$')->name('export.final');
+    })->name('export.final');
 });
 
 // ==================== AUTENTICACIÓN CON RATE LIMITING RELAJADO ====================
@@ -144,7 +165,7 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 
 // 🔧 Login attempts - Rate limiting más permisivo
 Route::post('/login', [AuthController::class, 'login'])
-    ->middleware('throttle:20,1')  // 20 intentos por minuto en lugar de 5
+    ->middleware('throttle:20,10')
     ->name('admin.auth');
 
 // Redirigir /admin a login

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -30,13 +29,13 @@
             </p>
 
             <!-- Información adicional -->
-            @if(session('alumno_id'))
+            @if(session('alumno_nombre'))
                 <div class="bg-blue-50 rounded-lg p-4 mb-6">
                     <p class="text-sm text-blue-800">
-                        <strong>FOLIO:</strong> #{{ session('alumno_id') }}
+                        <strong>Nombre:</strong> {{ session('alumno_nombre') }}
                     </p>
                     <p class="text-xs text-blue-600 mt-1">
-                        Guarda este número para futuras consultas
+                        Tu información ha sido actualizada exitosamente
                     </p>
                 </div>
             @endif

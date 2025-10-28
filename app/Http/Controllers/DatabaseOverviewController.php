@@ -507,8 +507,7 @@ public function update(Request $request, $table, $id)
                 'programa_nombre_programa' => 'required|string|max:255',
                 'programa_encargado_nombre' => 'required|string|max:100',
                 'programa_titulos_id' => 'required|exists:titulos,id',
-                'programa_puesto_encargado' => 'required|string|max:100',
-                'programa_telefono_institucion' => 'required|digits:10',
+                'programa_puesto_encargado' => 'required|string|max:100|regex:/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\.\,\-\/]+$/',  
                 'programa_metodo_servicio_id' => 'required|exists:metodo_servicio,id',
                 'programa_fecha_inicio' => 'required|date',
                 'programa_fecha_final' => 'required|date|after:programa_fecha_inicio',
@@ -1232,6 +1231,11 @@ public function updateRecord(Request $request, $table, $id)
     ]);
     
     try {
+              // ✅ SI ES ALUMNO, USAR EL MÉTODO ESPECIAL
+        if ($table === 'alumno') {
+            \Log::info('🔄 Redirigiendo a updateAlumnoFromRecord');
+            return $this->updateAlumnoFromRecord($request, $id);
+        }
         // Validación especial para programa_servicio_social ANTES de la validación general
         if ($table === 'programa_servicio_social') {
             $currentRecord = DB::table($table)->where('id', $id)->first();
