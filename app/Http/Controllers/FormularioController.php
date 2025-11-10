@@ -54,8 +54,9 @@ class FormularioController extends Controller
                 'email',
                 'ends_with:@cbta256.edu.mx',
                 'max:100',
-                'unique:alumno,correo_institucional' // ✅ AGREGAR ESTA REGLA
-            ],
+    Rule::unique('alumno', 'correo_institucional')->where(function ($query) {
+                    $query->where('status_id', 1);
+                })            ],
                 'telefono' => 'required|digits:10',
                 'apellido_p' => 'required|string|max:45',  // ✅ CORREGIDO
                 'apellido_m' => 'required|string|max:45',  // ✅ CORREGIDO
@@ -113,7 +114,16 @@ class FormularioController extends Controller
  'matricula' => [
                 'required',
                 'digits:14',
-                'unique:escolaridad_alumno,numero_control' // ✅ AGREGAR ESTA REGLA
+                 // ✅ SOLO VALIDAR CONTRA MATRÍCULAS DE USUARIOS ACTIVOS
+                Rule::unique('escolaridad_alumno', 'numero_control')->where(function ($query) {
+                    // Verificar que el alumno asociado esté activo
+                    $query->whereExists(function ($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                 ->from('alumno')
+                                 ->whereColumn('alumno.id', 'escolaridad_alumno.alumno_id')
+                                 ->where('alumno.status_id', 1);
+                    });
+                })
             ],  
                 'meses_servicio' => 'required|integer|min:1|max:12',
                 'modalidad_id' => 'required|exists:modalidad,id',
@@ -270,12 +280,17 @@ class FormularioController extends Controller
                 'nombre' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
                 'apellido_p' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
                 'apellido_m' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
- 'correo_institucional' => [
+  // ✅ CORREO: Ignorar el propio registro Y solo validar contra activos
+        'correo_institucional' => [
             'required',
             'email',
             'max:100',
             'ends_with:@cbta256.edu.mx',
-            Rule::unique('alumno', 'correo_institucional')->ignore($id) // ✅ AGREGAR
+            Rule::unique('alumno', 'correo_institucional')
+                ->ignore($id)
+                ->where(function ($query) {
+                    $query->where('status_id', 1);
+                })
         ],                'telefono' => 'required|digits:10',
                 'edad_id' => 'required|integer|exists:edad,id',
                 'sexo_id' => 'required|integer|exists:sexo,id',
@@ -287,14 +302,22 @@ class FormularioController extends Controller
                 'ubicacion_municipios_id' => 'required|integer|exists:municipios,id',
                 
                 // Escolaridad
- 'escolaridad_numero_control' => [
+  // ✅ MATRÍCULA: Ignorar el propio registro Y solo validar contra activos
+        'escolaridad_numero_control' => [
             'required',
             'string',
             'max:14',
             'regex:/^[0-9]{8,14}$/',
-            // ✅ AGREGAR VALIDACIÓN UNIQUE CON IGNORE
-            Rule::unique('escolaridad_alumno', 'numero_control')
-                ->where('alumno_id', '!=', $id)
+            Rule::unique('escolaridad_alumno', 'numero_control')->where(function ($query) use ($id) {
+                // Ignorar el registro actual y solo validar contra usuarios activos
+                $query->where('alumno_id', '!=', $id)
+                      ->whereExists(function ($subQuery) {
+                          $subQuery->select(DB::raw(1))
+                                   ->from('alumno')
+                                   ->whereColumn('alumno.id', 'escolaridad_alumno.alumno_id')
+                                   ->where('alumno.status_id', 1);
+                      });
+            })
         ],
                         'escolaridad_meses_servicio' => 'required|integer|min:1|max:12',
                 'escolaridad_modalidad_id' => 'required|integer|exists:modalidad,id',
@@ -608,35 +631,37 @@ public function guardarTodo(Request $request)
             if (!$datosAlumno || !$datosEscolaridad) {
                 return redirect('/datos-alumno')->with('error', 'Sesión expirada. Inicia el registro nuevamente.');
             }
-// 1. Validar que el correo no esté duplicado
+// 
+        // ✅ 1. Validar correo solo en usuarios ACTIVOS
         $correoExiste = DB::table('alumno')
             ->where('correo_institucional', $datosAlumno['correo_institucional'])
+            ->where('status_id', 1) // ← SOLO ACTIVOS
             ->exists();
             
         if ($correoExiste) {
-            \Log::warning('Intento de registro con correo duplicado: ' . $datosAlumno['correo_institucional']);
+            \Log::warning('Intento de registro con correo duplicado en usuario activo: ' . $datosAlumno['correo_institucional']);
             
-            // Limpiar sesión para que vuelva a empezar
             Session::forget(['datos_alumno', 'datos_escolaridad', 'datos_programa']);
             
             return redirect('/datos-alumno')
-                ->with('error', 'El correo institucional ' . $datosAlumno['correo_institucional'] . ' ya está registrado. Si ya te registraste, usa la opción "Actualizar Registro".')
+                ->with('error', 'El correo institucional ' . $datosAlumno['correo_institucional'] . ' ya está registrado como usuario activo. Si ya te registraste, usa la opción "Actualizar Registro".')
                 ->withInput();
         }
         
-        // 2. Validar que la matrícula no esté duplicada
+        // ✅ 2. Validar matrícula solo en usuarios ACTIVOS
         $matriculaExiste = DB::table('escolaridad_alumno')
-            ->where('numero_control', $datosEscolaridad['numero_control'])
+            ->join('alumno', 'escolaridad_alumno.alumno_id', '=', 'alumno.id')
+            ->where('escolaridad_alumno.numero_control', $datosEscolaridad['numero_control'])
+            ->where('alumno.status_id', 1) // ← SOLO ACTIVOS
             ->exists();
             
         if ($matriculaExiste) {
-            \Log::warning('Intento de registro con matrícula duplicada: ' . $datosEscolaridad['numero_control']);
+            \Log::warning('Intento de registro con matrícula duplicada en usuario activo: ' . $datosEscolaridad['numero_control']);
             
-            // Limpiar sesión para que vuelva a empezar
             Session::forget(['datos_alumno', 'datos_escolaridad', 'datos_programa']);
             
             return redirect('/datos-alumno')
-                ->with('error', 'El número de control ' . $datosEscolaridad['numero_control'] . ' ya está registrado. Si ya te registraste, usa la opción "Actualizar Registro".')
+                ->with('error', 'El número de control ' . $datosEscolaridad['numero_control'] . ' ya está registrado como usuario activo. Si ya te registraste, usa la opción "Actualizar Registro".')
                 ->withInput();
         }
 
