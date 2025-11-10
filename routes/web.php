@@ -13,7 +13,7 @@ use App\Http\Controllers\AlumnosController;
 use App\Http\Controllers\AlumnoPublicoController;
 
 // ==================== RUTAS PÚBLICAS CON RATE LIMITING ====================
-Route::middleware(['throttle:10,1'])->group(function () {
+Route::middleware(['throttle:10,10'])->group(function () {
     Route::get('/', function () {
         return view('solicitud');
     })->name('solicitud');
@@ -78,7 +78,7 @@ Route::middleware(['throttle:10,1'])->group(function () {
 });
 
 // Formulario público con protección estricta
-Route::middleware(['throttle:5,1'])->group(function () {
+Route::middleware(['throttle:10,10'])->group(function () {
     Route::post('/guardar-datos-alumno', [FormularioController::class, 'guardarDatosAlumno']);
     Route::post('/guardar-escolaridad', [FormularioController::class, 'guardarEscolaridad']);
     Route::post('/guardar-programa', [FormularioController::class, 'guardarPrograma']);
@@ -88,11 +88,13 @@ Route::middleware(['throttle:5,1'])->group(function () {
     Route::post('/procesar-registro', [FormularioController::class, 'guardarTodo'])->name('procesar.registro');
     
     // Ruta de búsqueda de registro - AQUÍ SE AUTENTICA EL USUARIO
-    Route::post('/buscar-registro', [FormularioController::class, 'buscarRegistro'])->name('buscar.registro');
+    Route::post('/buscar-registro', [FormularioController::class, 'buscarRegistro'])
+        ->name('buscar.registro')
+        ->middleware('web'); // ← AGREGAR ESTO
 });
 
 // API endpoints con validación estricta
-Route::middleware(['throttle:30,1'])->group(function () {
+Route::middleware(['throttle:2,10'])->group(function () {
     Route::get('/api/municipios-por-estado/{estadoId}', function($estadoId) {
         if (!ctype_digit($estadoId)) {
             return response()->json(['error' => 'Formato inválido'], 400);
@@ -124,7 +126,7 @@ Route::middleware(['throttle:30,1'])->group(function () {
 });
 
 // ==================== DOCUMENTOS PÚBLICOS CON VALIDACIÓN DE SESIÓN ====================
-Route::middleware(['throttle:10,1'])->group(function () {
+Route::middleware(['throttle:10,10'])->group(function () {
     Route::get('/export/solicitud', function() {
         if (!session('alumno_autenticado') || !session('alumno_id')) {
             abort(403, 'No tienes permiso para descargar este documento');

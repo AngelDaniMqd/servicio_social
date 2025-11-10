@@ -133,20 +133,27 @@
                         
                         <!-- Formulario de actualización (inicialmente oculto) -->
                         <div id="formularioActualizar" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
-                            <form action="{{ route('buscar.registro') }}" method="POST" class="space-y-4">
+                            <form action="{{ route('buscar.registro') }}" method="POST" class="space-y-4" id="formBuscarRegistro">
                                 @csrf
+                                
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Folio de Registro (ID) <span class="text-red-500">*</span>
                                     </label>
                                     <input type="number" 
                                            name="folio" 
+                                           id="folio"
                                            placeholder="Ej: 123"
+                                           min="1"
                                            required
+                                           value="{{ old('folio') }}"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">Este número lo recibiste al registrarte</p>
                                 </div>
                                 
-                                <div class="text-center text-gray-500 font-bold">DEBE LLENAR UNO DE LOS DOS:</div>
+                                <div class="text-center text-gray-500 font-bold py-2 border-t border-b border-gray-300">
+                                    DEBE LLENAR UNO DE LOS DOS:
+                                </div>
                                 
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -154,12 +161,16 @@
                                     </label>
                                     <input type="text" 
                                            name="numero_control" 
+                                           id="numero_control"
                                            placeholder="14 dígitos"
                                            maxlength="14"
+                                           pattern="[0-9]{14}"
+                                           value="{{ old('numero_control') }}"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">Ejemplo: 12345678901234</p>
                                 </div>
                                 
-                                <div class="text-center text-gray-500 font-medium">O</div>
+                                <div class="text-center text-gray-500 font-medium py-1">O</div>
                                 
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -167,14 +178,27 @@
                                     </label>
                                     <input type="email" 
                                            name="correo" 
+                                           id="correo"
                                            placeholder="tucorreo@cbta256.edu.mx"
+                                           pattern=".+@cbta256\.edu\.mx$"
+                                           value="{{ old('correo') }}"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">Debe terminar en @cbta256.edu.mx</p>
+                                </div>
+                                
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                    <p class="text-xs text-yellow-800">
+                                        <strong>Importante:</strong> Debes proporcionar el FOLIO + (tu Matrícula O tu Correo institucional)
+                                    </p>
                                 </div>
                                 
                                 <div class="flex space-x-3">
                                     <button type="submit" 
-                                            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                                        Buscar y Editar Registro
+                                            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                        </svg>
+                                        Buscar y Editar
                                     </button>
                                     <button type="button" 
                                             onclick="ocultarFormularioActualizar()"
@@ -193,11 +217,85 @@
     <script>
         function mostrarFormularioActualizar() {
             document.getElementById('formularioActualizar').classList.remove('hidden');
+            // Hacer scroll hacia el formulario
+            document.getElementById('formularioActualizar').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'nearest' 
+            });
+            // Enfocar el primer campo
+            document.getElementById('folio').focus();
         }
         
         function ocultarFormularioActualizar() {
             document.getElementById('formularioActualizar').classList.add('hidden');
+            // Limpiar el formulario
+            document.getElementById('formBuscarRegistro').reset();
         }
+        
+        // Validación en tiempo real
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('formBuscarRegistro');
+            
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    const folio = document.getElementById('folio').value;
+                    const numeroControl = document.getElementById('numero_control').value;
+                    const correo = document.getElementById('correo').value;
+                    
+                    // Validar que el folio esté lleno
+                    if (!folio) {
+                        e.preventDefault();
+                        alert('❌ El Folio de Registro es obligatorio');
+                        document.getElementById('folio').focus();
+                        return false;
+                    }
+                    
+                    // Validar que al menos uno de los dos campos esté lleno
+                    if (!numeroControl && !correo) {
+                        e.preventDefault();
+                        alert('❌ Debes proporcionar tu Número de Control O tu Correo Institucional');
+                        document.getElementById('numero_control').focus();
+                        return false;
+                    }
+                    
+                    // Validar formato de número de control si está lleno
+                    if (numeroControl && numeroControl.length !== 14) {
+                        e.preventDefault();
+                        alert('❌ El Número de Control debe tener exactamente 14 dígitos');
+                        document.getElementById('numero_control').focus();
+                        return false;
+                    }
+                    
+                    // Validar formato de correo si está lleno
+                    if (correo && !correo.endsWith('@cbta256.edu.mx')) {
+                        e.preventDefault();
+                        alert('❌ El correo debe terminar en @cbta256.edu.mx');
+                        document.getElementById('correo').focus();
+                        return false;
+                    }
+                    
+                    // Mostrar mensaje de espera
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = `
+                    <svg class="animate-spin h-5 w-5 mr-2 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Buscando...
+                `;
+                    
+                    return true;
+                });
+            }
+        });
+        
+        // Auto-abrir el formulario si hay errores de validación
+        @if($errors->any() || old('folio'))
+            document.addEventListener('DOMContentLoaded', function() {
+                mostrarFormularioActualizar();
+            });
+        @endif
     </script>
 </body>
 </html>

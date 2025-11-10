@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;  
+use Illuminate\Validation\Rule;
 class FormularioController extends Controller
 {
     public function mostrarSolicitud()
@@ -48,7 +49,13 @@ class FormularioController extends Controller
         try {
             // VALIDAR los datos del alumno
             $request->validate([
-                'correo_institucional' => 'required|email|ends_with:@cbta256.edu.mx',
+                  'correo_institucional' => [
+                'required',
+                'email',
+                'ends_with:@cbta256.edu.mx',
+                'max:100',
+                'unique:alumno,correo_institucional' // ✅ AGREGAR ESTA REGLA
+            ],
                 'telefono' => 'required|digits:10',
                 'apellido_p' => 'required|string|max:45',  // ✅ CORREGIDO
                 'apellido_m' => 'required|string|max:45',  // ✅ CORREGIDO
@@ -59,7 +66,9 @@ class FormularioController extends Controller
                 'cp' => 'required|digits:5',
                 'estado' => 'required|exists:estados,id',
                 'municipio' => 'required|exists:municipios,id',
-            ]);
+        ],[
+            'correo_institucional.unique' => 'Este correo ya está registrado. Si ya tienes una cuenta, usa la opción "Actualizar Registro" o acude al responsable de servicio social cbta256.',
+        ]);
 
             // Guardar TODOS los datos en sesión
           $datosAlumno = $request->only([
@@ -101,13 +110,20 @@ class FormularioController extends Controller
         try {
             // VALIDAR los datos de escolaridad
             $request->validate([
-                'matricula' => 'required|digits:14',
+ 'matricula' => [
+                'required',
+                'digits:14',
+                'unique:escolaridad_alumno,numero_control' // ✅ AGREGAR ESTA REGLA
+            ],  
                 'meses_servicio' => 'required|integer|min:1|max:12',
                 'modalidad_id' => 'required|exists:modalidad,id',
                 'carreras_id' => 'required|exists:carreras,id',
                 'semestres_id' => 'required|exists:semestres,id',
                 'grupos_id' => 'required|exists:grupos,id',
-            ]);
+        ],[
+            'matricula.unique' => 'Este número de control ya está registrado. Si ya tienes una cuenta, usa la opción "Actualizar Registro".',
+            // ...otros mensajes...
+        ]);
 
             // MAPEAR correctamente los campos
             $datosEscolaridad = [
@@ -254,8 +270,13 @@ class FormularioController extends Controller
                 'nombre' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
                 'apellido_p' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
                 'apellido_m' => 'required|string|max:45|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
-                'correo_institucional' => 'required|email|max:255|ends_with:@cbta256.edu.mx',
-                'telefono' => 'required|digits:10',
+ 'correo_institucional' => [
+            'required',
+            'email',
+            'max:100',
+            'ends_with:@cbta256.edu.mx',
+            Rule::unique('alumno', 'correo_institucional')->ignore($id) // ✅ AGREGAR
+        ],                'telefono' => 'required|digits:10',
                 'edad_id' => 'required|integer|exists:edad,id',
                 'sexo_id' => 'required|integer|exists:sexo,id',
                 
@@ -266,25 +287,33 @@ class FormularioController extends Controller
                 'ubicacion_municipios_id' => 'required|integer|exists:municipios,id',
                 
                 // Escolaridad
-                'escolaridad_numero_control' => 'required|string|max:14|regex:/^[0-9]{8,14}$/',
-                'escolaridad_meses_servicio' => 'required|integer|min:1|max:12',
+ 'escolaridad_numero_control' => [
+            'required',
+            'string',
+            'max:14',
+            'regex:/^[0-9]{8,14}$/',
+            // ✅ AGREGAR VALIDACIÓN UNIQUE CON IGNORE
+            Rule::unique('escolaridad_alumno', 'numero_control')
+                ->where('alumno_id', '!=', $id)
+        ],
+                        'escolaridad_meses_servicio' => 'required|integer|min:1|max:12',
                 'escolaridad_modalidad_id' => 'required|integer|exists:modalidad,id',
                 'escolaridad_carreras_id' => 'required|integer|exists:carreras,id',
                 'escolaridad_semestres_id' => 'required|integer|exists:semestres,id',
                 'escolaridad_grupos_id' => 'required|integer|exists:grupos,id',
                 
-                // Programa
-                'programa_instituciones_id' => 'required',
-                'programa_nombre_programa' => 'required|string|max:255|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\.\-\,]+$/',
-                'programa_encargado_nombre' => 'required|string|max:100|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\.\-]+$/',
-                'programa_titulos_id' => 'required|integer|exists:titulos,id',
-                'programa_puesto_encargado' => 'required|string|max:100|regex:/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\.\,\-\/]+$//',
-                'programa_telefono_institucion' => 'required|digits:10',
-                'programa_metodo_servicio_id' => 'required|integer|exists:metodo_servicio,id',
-                'programa_fecha_inicio' => 'required|date|after_or_equal:2020-01-01|before_or_equal:2030-12-31',
-                'programa_fecha_final' => 'required|date|after:programa_fecha_inicio|before_or_equal:2030-12-31',
-    'programa_tipos_programa_id' => 'required', // Quitar |exists:tipos_programa,id
-    
+                    // Programa - ✅ BARRAS ESCAPADAS CON \
+        'programa_instituciones_id' => 'required|exists:instituciones,id',
+        'programa_nombre_programa' => 'required|string|max:200|regex:/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\.\,\-\/]+$/',
+        'programa_encargado_nombre' => 'required|string|max:100|regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\.]+$/',
+        'programa_titulos_id' => 'required|exists:titulos,id',
+        'programa_puesto_encargado' => 'required|string|max:100|regex:/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\.\,\-\/]+$/',
+        'programa_telefono_institucion' => 'required|digits:10',
+        'programa_metodo_servicio_id' => 'required|exists:metodo_servicio,id',
+        'programa_fecha_inicio' => 'required|date',
+        'programa_fecha_final' => 'required|date|after_or_equal:programa_fecha_inicio',
+        'programa_tipos_programa_id' => 'required|exists:tipos_programa,id',
+        
     // Campos opcionales
     'programa_otra_institucion' => 'nullable|string|max:255',
     'programa_otro_programa' => 'nullable|string|max:255',
@@ -399,15 +428,26 @@ $messages = [
                 }
             }
 
-            \Log::info('Iniciando validación...');
+          \Log::info('Iniciando validación...');
+        
+        try {
             $validatedData = $request->validate($rules, $messages);
-            \Log::info('Validación exitosa');
+            \Log::info('✅ Validación exitosa');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('❌ Error de validación:', $e->errors());
+            
+            // ✅ REDIRIGIR CON ERRORES VISIBLES
+            return redirect()->back()
+                   ->withErrors($e->errors())
+                   ->withInput()
+                   ->with('error', 'Por favor corrige los errores marcados en rojo');
+        }
 
-            // Ejecutar transacción
-            DB::transaction(function() use ($request, $id) {
-                
-                // 1. Actualizar datos del alumno
-                $alumnoData = [
+        // Ejecutar transacción
+        DB::transaction(function() use ($request, $id) {
+
+            // 1. Actualizar datos del alumno
+            $alumnoData = [
                     'correo_institucional' => trim($request->correo_institucional),
                     'apellido_p' => trim($request->apellido_p),
                     'apellido_m' => trim($request->apellido_m),
@@ -568,6 +608,37 @@ public function guardarTodo(Request $request)
             if (!$datosAlumno || !$datosEscolaridad) {
                 return redirect('/datos-alumno')->with('error', 'Sesión expirada. Inicia el registro nuevamente.');
             }
+// 1. Validar que el correo no esté duplicado
+        $correoExiste = DB::table('alumno')
+            ->where('correo_institucional', $datosAlumno['correo_institucional'])
+            ->exists();
+            
+        if ($correoExiste) {
+            \Log::warning('Intento de registro con correo duplicado: ' . $datosAlumno['correo_institucional']);
+            
+            // Limpiar sesión para que vuelva a empezar
+            Session::forget(['datos_alumno', 'datos_escolaridad', 'datos_programa']);
+            
+            return redirect('/datos-alumno')
+                ->with('error', 'El correo institucional ' . $datosAlumno['correo_institucional'] . ' ya está registrado. Si ya te registraste, usa la opción "Actualizar Registro".')
+                ->withInput();
+        }
+        
+        // 2. Validar que la matrícula no esté duplicada
+        $matriculaExiste = DB::table('escolaridad_alumno')
+            ->where('numero_control', $datosEscolaridad['numero_control'])
+            ->exists();
+            
+        if ($matriculaExiste) {
+            \Log::warning('Intento de registro con matrícula duplicada: ' . $datosEscolaridad['numero_control']);
+            
+            // Limpiar sesión para que vuelva a empezar
+            Session::forget(['datos_alumno', 'datos_escolaridad', 'datos_programa']);
+            
+            return redirect('/datos-alumno')
+                ->with('error', 'El número de control ' . $datosEscolaridad['numero_control'] . ' ya está registrado. Si ya te registraste, usa la opción "Actualizar Registro".')
+                ->withInput();
+        }
 
             // VALIDAR datos del programa
             $request->validate([
@@ -825,12 +896,20 @@ public function guardarTodo(Request $request)
     public function buscarRegistro(Request $request)
     {
         try {
-            // Validar que al menos un campo esté lleno
-            $request->validate([
-                'folio' => 'nullable|numeric',
-                'numero_control' => 'nullable|string|max:14',
-                'correo' => 'nullable|email'
-            ]);
+           if (!$request->hasValidSignature() && !$request->session()->token()) {
+            \Log::warning('Token CSRF inválido o expirado');
+            return redirect('/solicitud')
+                ->with('error', 'Tu sesión ha expirado. Por favor, intenta nuevamente.')
+                ->withInput($request->except('_token'));
+        }
+
+        // Validar que al menos un campo esté lleno
+        $request->validate([
+            'folio' => 'nullable|numeric',
+            'numero_control' => 'nullable|string|max:14',
+            'correo' => 'nullable|email'
+        ]);
+
 
             $folio = $request->folio;
             $numeroControl = $request->numero_control;

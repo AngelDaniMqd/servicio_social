@@ -114,11 +114,43 @@
             @endif
 
             <!-- Formulario Responsive -->
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <form action="{{ route('alumno.actualizar') }}" method="POST" enctype="multipart/form-data" id="editAlumnoForm">
-                    @csrf
-                    @method('PUT')
-                    
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <form action="{{ route('alumno.actualizar') }}" method="POST" enctype="multipart/form-data" id="editAlumnoForm">
+        @csrf
+        @method('PUT')
+                          <!-- ✅ AGREGAR ALERTA DE ERRORES -->
+        @if($errors->any())
+            <div class="p-4 bg-red-50 border-b border-red-200">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-red-600 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                    <div class="flex-1">
+                        <h3 class="text-red-800 font-semibold mb-2">Por favor corrige los siguientes errores:</h3>
+                        <ul class="list-disc list-inside text-red-700 space-y-1 text-sm">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+        
+        @if(session('error'))
+            <div class="p-4 bg-red-50 border-b border-red-200">
+                <div class="flex items-center text-red-800">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="font-semibold">{{ session('error') }}</span>
+                </div>
+            </div>
+        @endif
+        
+        <!-- Pestañas del formulario -->
+        <div class="p-3 sm:p-6">
+            <!-- ... resto del formulario ... -->
                     <!-- Tabs Navigation - Responsive -->
                     <div class="border-b border-gray-200 overflow-x-auto">
                         <nav class="flex px-2 sm:px-6" aria-label="Tabs">
@@ -412,12 +444,21 @@
 
                                 <!-- Puesto del Encargado -->
                                <div>
-    <label class="block text-sm font-medium text-gray-700 mb-2">Puesto del Encargado *</label>
-    <input type="text" name="programa_puesto_encargado" value="{{ old('programa_puesto_encargado', $programa->puesto_encargado ?? '') }}" 
-           class="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm" 
-           required maxlength="100"
+    <label class="block text-sm font-medium text-gray-700 mb-2">
+        Puesto del Encargado *
+        @error('programa_puesto_encargado')
+            <span class="text-red-600 text-xs ml-2">{{ $message }}</span>
+        @enderror
+    </label>
+           <input type="text" 
+           name="programa_puesto_encargado" 
+           value="{{ old('programa_puesto_encargado', $programa->puesto_encargado ?? '') }}" 
+           class="w-full px-3 py-2.5 sm:py-2 border @error('programa_puesto_encargado') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm" 
+           required 
+           maxlength="100"
            pattern="^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\.\,\-\/]+$"
            title="Puede contener letras, números, espacios, puntos, comas y guiones">
+    <p class="text-xs text-gray-500 mt-1">Ejemplo: Director General, Coordinador Nivel 2, Jefe de Área 3</p>
 </div>
 
                                 <!-- Teléfono de la Institución -->
@@ -1040,6 +1081,36 @@
             originalShowTab(n);
             updateProgress();
         };
+
+        // Auto-scroll a errores de validación
+        @if($errors->any())
+            $(document).ready(function() {
+                // Scroll a la alerta de errores
+                $('html, body').animate({
+                    scrollTop: 0
+                }, 500);
+                
+                // Encontrar el primer campo con error y hacer scroll
+                const firstError = $('.border-red-500').first();
+                if (firstError.length) {
+                    // Encontrar en qué tab está
+                    const errorTab = firstError.closest('.tab-content');
+                    if (errorTab.length) {
+                        const tabIndex = $('.tab-content').index(errorTab);
+                        currentTab = tabIndex;
+                        showTab(currentTab);
+                    }
+                    
+                    // Scroll al campo con error
+                    setTimeout(() => {
+                        $('html, body').animate({
+                            scrollTop: firstError.offset().top - 100
+                        }, 500);
+                        firstError.focus();
+                    }, 600);
+                }
+            });
+        @endif
     </script>
 </body>
 </html>
