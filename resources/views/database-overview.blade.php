@@ -119,9 +119,9 @@ use Carbon\Carbon;
                                     </span>
                                 @endif
                             </p>
-                        </div>
-                        
-                        <div class="flex items-center space-x-3">
+</div>
+
+<div class="flex items-center space-x-3">
                                @if($selectedTable !== 'formatos')
                                 <a href="{{ route('record.create', ['table' => $selectedTable]) }}" 
                                    class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-lg font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
@@ -556,11 +556,24 @@ use Carbon\Carbon;
                     <thead class="bg-gray-200">
                         <tr>
                             @if($rows->isNotEmpty())
-                                @foreach(array_keys((array)$rows->first()) as $column)
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {{ ucfirst(str_replace('_', ' ', $column)) }}
-                                    </th>
-                                @endforeach
+                              @foreach(array_keys((array)$rows->first()) as $column)
+    @if(in_array($column, [
+        'id',
+        'alumno_id',
+        'edad_id',
+        'sexo_id',
+        'rol_id',
+        'status_id',
+        'status',
+        'programa_status_id'
+    ]))
+        @continue
+    @endif
+    
+    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        {{ ucfirst(str_replace('_', ' ', $column)) }}
+    </th>
+@endforeach
                                 <th scope="col" class="relative px-6 py-3">
                                     <span class="sr-only">Acciones</span>
                                 </th>
@@ -570,8 +583,21 @@ use Carbon\Carbon;
                     <tbody class="bg-white divide-y divide-gray-200">
                         @forelse($rows as $row)
                             <tr class="hover:bg-gray-50 transition-colors">
-                                @foreach((array)$row as $column => $value)
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+@foreach((array)$row as $column => $value)
+    @if(in_array($column, [
+        'id',
+        'alumno_id',
+        'edad_id',
+        'sexo_id',
+        'rol_id',
+        'status_id',
+        'status',  {{-- ✅ OCULTAR columna status del alumno --}}
+        'programa_status_id'
+    ]))
+        @continue
+    @endif
+    
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         @if(is_null($value))
                                             <span class="text-gray-400 italic">Sin información</span>
                                         @elseif($value === '')
@@ -661,45 +687,32 @@ use Carbon\Carbon;
                                                     echo $value;
                                                 }
                                             @endphp
-                                        @elseif($column === 'status_id')
-                                            @php
-                                                try {
-                                                    // Obtener el registro completo para verificar fechas
-                                                    $currentRow = null;
-                                                    if ($selectedTable === 'programa_servicio_social') {
-                                                        $currentRow = DB::table('programa_servicio_social')->where('id', $row->id)->first();
-                                                    }
-                                                    
-                                                    // Determinar status automático basado en fechas
-                                                    $autoStatus = null;
-                                                    if ($currentRow && isset($currentRow->fecha_final)) {
-                                                        $fechaFinal = \Carbon\Carbon::parse($currentRow->fecha_final);
-                                                        $fechaInicio = \Carbon\Carbon::parse($currentRow->fecha_inicio);
-                                                        $hoy = \Carbon\Carbon::now();
-                                                        
-                                                        if ($hoy->gt($fechaFinal)) {
-                                                            $autoStatus = 4; // Finalizado
-                                                        } elseif ($hoy->gte($fechaInicio) && $hoy->lte($fechaFinal)) {
-                                                            $autoStatus = 3; // En proceso
-                                                        } else {
-                                                            $autoStatus = 1; // Activo (aún no inicia)
-                                                        }
-                                                        
-                                                        // Actualizar automáticamente si es diferente
-                                                        if ($autoStatus != $value) {
-                                                            DB::table('programa_servicio_social')
-                                                                ->where('id', $row->id)
-                                                                ->update(['status_id' => $autoStatus]);
-                                                            $value = $autoStatus;
-                                                        }
-                                                    }
-                                                    
-                                                    $status = DB::table('status')->where('id', $value)->first();
-                                                    echo $status && property_exists($status, 'tipo') ? $status->tipo : $value;
-                                                } catch(Exception $e) {
-                                                    echo $value;
-                                                }
-                                            @endphp
+
+@elseif($column === 'status_programa')
+    @php
+        // Normalizar el valor: trim y quitar espacios extra
+        $statusTexto = $value ? trim($value) : 'Sin Status';
+        
+        // DEBUG: Descomentar para ver el valor exacto
+        // echo "<!--DEBUG: status_programa = '{$statusTexto}' | length: " . strlen($statusTexto) . "-->";
+        
+        // Determinar color según el TEXTO del status (case-insensitive)
+        $statusNormalizado = strtolower($statusTexto);
+        
+        if (str_contains($statusNormalizado, 'activo')) {
+            $colorClass = 'bg-blue-100 text-blue-800';
+        } elseif (str_contains($statusNormalizado, 'proceso')) {
+            $colorClass = 'bg-yellow-100 text-yellow-800';
+        } elseif (str_contains($statusNormalizado, 'finalizado')) {
+            $colorClass = 'bg-green-100 text-green-800';
+        } elseif (str_contains($statusNormalizado, 'cancelado')) {
+            $colorClass = 'bg-red-100 text-red-800';
+        } else {
+            $colorClass = 'bg-gray-100 text-gray-800';
+        }
+        
+        echo "<span class='px-2 py-1 text-xs font-semibold rounded-full {$colorClass}'>{$statusTexto}</span>";
+    @endphp
                                         @elseif(strlen($value) > 50)
                                             <span title="{{ $value }}" class="cursor-help">{{ substr($value, 0, 50) }}...</span>
                                         @elseif(preg_match('/^\d{4}-\d{2}-\d{2}$/', $value))
@@ -765,8 +778,8 @@ use Carbon\Carbon;
                                         </a>
 
                                         <!-- Botón Cancelar - Solo mostrar si el alumno está activo (status = Activo) -->
-                                       @if($row->status === 'Activo' || (isset($row->status_id) && $row->status_id == 1))
-                                         <button onclick="openCancelModal('{{ $row->id }}', '{{ $selectedTable }}')" 
+
+@if(isset($row->status_id) && in_array($row->status_id, [1, 3, 4]))                                         <button onclick="openCancelModal('{{ $row->id }}', '{{ $selectedTable }}')" 
                                           class="inline-flex items-center px-3 py-1.5 bg-red-100 text-red-800 text-xs font-medium rounded-lg hover:bg-red-200 transition-colors">
                                             <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>

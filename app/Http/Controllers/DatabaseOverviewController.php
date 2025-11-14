@@ -15,29 +15,99 @@ class DatabaseOverviewController extends Controller
         $rows = null;
         $filterOptions = [];
 
-        if ($selectedTable) {
-            if ($selectedTable === 'alumno') {
-                // Para la tabla alumno, usamos consulta con joins para obtener información relacionada
-                $query = $this->buildAlumnoQuery();
-                $this->applyAlumnoFilters($query, $request);
-                $filterOptions = $this->getFilterOptions();
-            } else {
+     
+    if ($selectedTable) {
+        // ✅ FILTRAR programa_servicio_social POR STATUS DEL ALUMNO
+        if ($selectedTable === 'programa_servicio_social') {
+            $statusFilter = $request->get('status', 'activos'); // Por defecto, mostrar activos
+            
+            $query = DB::table('programa_servicio_social')
+                ->join('alumno', 'programa_servicio_social.alumno_id', '=', 'alumno.id')
+                ->leftJoin('instituciones', 'programa_servicio_social.instituciones_id', '=', 'instituciones.id')
+                ->leftJoin('titulos', 'programa_servicio_social.titulos_id', '=', 'titulos.id')
+                ->leftJoin('metodo_servicio', 'programa_servicio_social.metodo_servicio_id', '=', 'metodo_servicio.id')
+                ->leftJoin('tipos_programa', 'programa_servicio_social.tipos_programa_id', '=', 'tipos_programa.id')
+                ->leftJoin('status', 'programa_servicio_social.status_id', '=', 'status.id')
+                ->select([
+                    'programa_servicio_social.*',
+                    'alumno.nombre as alumno_nombre',
+                    'alumno.apellido_p as alumno_apellido_p',
+                    'alumno.apellido_m as alumno_apellido_m',
+                    'alumno.status_id as alumno_status_id',
+                    'instituciones.nombre as institucion_nombre',
+                    'titulos.titulo',
+                    'metodo_servicio.metodo',
+                    'tipos_programa.tipo as tipo_programa',
+                    'status.tipo as status_programa'
+                ]);
+            
+            // Filtrar según el estado del alumno
+            if ($statusFilter === 'activos') {
+                // ✅ Mostrar solo alumnos con status 1, 3, 4 (activos)
+                $query->whereIn('alumno.status_id', [1, 3, 4]);
+            } elseif ($statusFilter === 'cancelados') {
+                // Mostrar solo alumnos cancelados (status 2)
+                $query->where('alumno.status_id', 2);
+            }
+            // Si es 'todos', no aplicar filtro
+            
+            // Aplicar búsqueda si existe
+            if ($request->filled('search')) {
+                $searchTerm = $request->search;
+                $query->where(function($q) use ($searchTerm) {
+                    $q->where('programa_servicio_social.nombre_programa', 'like', '%' . $searchTerm . '%')
+                      ->orWhere('alumno.nombre', 'like', '%' . $searchTerm . '%')
+                      ->orWhere('alumno.apellido_p', 'like', '%' . $searchTerm . '%')
+                      ->orWhere('alumno.apellido_m', 'like', '%' . $searchTerm . '%')
+                      ->orWhere('instituciones.nombre', 'like', '%' . $searchTerm . '%');
+                });
+            }
+            
+            // Orden
+            $query->orderByDesc('programa_servicio_social.id');
+            
+            // Paginación
+            $perPage = $request->input('per_page', 50);
+            $perPage = in_array($perPage, [25, 50, 100, 250]) ? $perPage : 50;
+            $rows = $query->paginate($perPage)->appends($request->query());
+            
+            \Log::info('Programas filtrados:', [
+                'total' => $rows->total(),
+                'filtro' => $statusFilter
+            ]);
+            
+        } elseif ($selectedTable === 'alumno') {
+            // Para la tabla alumno, usar consulta con joins
+            $query = $this->buildAlumnoQuery();
+            $this->applyAlumnoFilters($query, $request);
+            $filterOptions = $this->getFilterOptions();
+            
+            // Orden y paginación
+            $query->orderByDesc('alumno.id');
+            $perPage = $request->input('per_page', 50);
+            $perPage = in_array($perPage, [25, 50, 100, 250]) ? $perPage : 50;
+            $rows = $query->paginate($perPage)->appends($request->query());
+            
+        }  else {
                 // Para otras tablas, consulta simple
                 $query = DB::table($selectedTable);
                 
                 // Agregar búsqueda general
-                if ($request->filled('search')) {
-                    $searchTerm = $request->search;
-                    $columns = Schema::getColumnListing($selectedTable);
-                    
-                    $query->where(function($q) use ($columns, $searchTerm) {
-                        foreach ($columns as $column) {
-                            $q->orWhere($column, 'like', '%' . $searchTerm . '%');
-                        }
-                    });
-                }
+                 if ($request->filled('search')) {
+                $searchTerm = $request->search;
+                $columns = Schema::getColumnListing($selectedTable);
+                
+                $query->where(function($q) use ($columns, $searchTerm) {
+                    foreach ($columns as $column) {
+                        $q->orWhere($column, 'like', '%' . $searchTerm . '%');
+                    }
+                });
+            }
             }
                // Orden global por ID (últimos primero)
+               if (Schema::hasColumn($selectedTable, 'id')) {
+                $query->orderByDesc($selectedTable . '.id');
+            }
             if ($selectedTable === 'alumno') {
                 $query->orderByDesc('alumno.id');
             } elseif (Schema::hasColumn($selectedTable, 'id')) {
@@ -72,7 +142,8 @@ class DatabaseOverviewController extends Controller
             ->leftJoin('titulos', 'programa_servicio_social.titulos_id', '=', 'titulos.id')
             ->leftJoin('metodo_servicio', 'programa_servicio_social.metodo_servicio_id', '=', 'metodo_servicio.id')
             ->leftJoin('tipos_programa', 'programa_servicio_social.tipos_programa_id', '=', 'tipos_programa.id')
-            ->where('alumno.status_id', 1) // Solo mostrar alumnos activos
+            ->leftJoin('status as status_programa', 'programa_servicio_social.status_id', '=', 'status_programa.id')
+            ->where('alumno.status_id', [1, 3, 4]) // Solo mostrar alumnos activos
             ->select([
                 // Información básica del alumno con nombres reales de columnas
                 'alumno.id',
@@ -86,7 +157,9 @@ class DatabaseOverviewController extends Controller
                 // IMPORTANTE: Incluir tanto el ID como el nombre del status
                 'alumno.status_id',
                 'status.tipo as status',
-                
+              // ✅ STATUS DEL PROGRAMA (ID + Nombre)
+ 
+    'status_programa.tipo as status_programa', // ← NUEVO
                 // Reemplazar IDs con nombres descriptivos
                 'edad.edades as edad',
                 'sexo.tipo as sexo',
@@ -120,6 +193,66 @@ class DatabaseOverviewController extends Controller
             ]);
     }
 
+public function cancelRecord($table, $id)
+{
+    \Log::info('=== cancelRecord INICIADO ===', [
+        'table' => $table,
+        'id' => $id
+    ]);
+
+    try {
+        // Solo permitir cancelar programas de servicio social
+        if ($table !== 'programa_servicio_social') {
+            return redirect()->back()->with('error', 'Esta acción solo está disponible para programas de servicio social');
+        }
+
+        // Obtener el programa y su alumno asociado
+        $programa = DB::table('programa_servicio_social')
+            ->where('id', $id)
+            ->first();
+        
+        if (!$programa) {
+            \Log::error('Programa no encontrado', ['id' => $id]);
+            return redirect()->back()->with('error', 'Programa no encontrado');
+        }
+
+        // Cambiar el status del alumno a 2 (cancelado)
+        $updated = DB::table('alumno')
+            ->where('id', $programa->alumno_id)
+            ->update(['status_id' => 2]);
+
+        if ($updated) {
+            \Log::info('✅ Alumno cancelado (programa oculto)', [
+                'programa_id' => $id,
+                'alumno_id' => $programa->alumno_id
+            ]);
+
+            // Obtener nombre del alumno para el mensaje
+            $alumno = DB::table('alumno')
+                ->where('id', $programa->alumno_id)
+                ->first();
+
+            $mensaje = 'Alumno cancelado exitosamente';
+            if ($alumno) {
+                $mensaje = "Alumno {$alumno->nombre} {$alumno->apellido_p} cancelado. Su programa ya no aparecerá en la lista de activos.";
+            }
+
+            return redirect()->route('dashboard', ['table' => $table])
+                ->with('success', $mensaje);
+        } else {
+            \Log::warning('No se pudo actualizar el alumno');
+            return redirect()->back()->with('error', 'No se pudo cancelar el alumno');
+        }
+
+    } catch (\Exception $e) {
+        \Log::error('❌ Error al cancelar:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return redirect()->back()->with('error', 'Error al cancelar: ' . $e->getMessage());
+    }
+}
     private function applyAlumnoFilters($query, $request)
     {
         // Filtros de información personal
@@ -1399,6 +1532,33 @@ public function cancelarAlumno($id)
         
         return redirect()->route('dashboard', ['table' => 'alumno'])
             ->with('error', 'Error al eliminar el alumno: ' . $e->getMessage());
+    }
+}
+
+
+public function actualizarStatusManual()
+{
+    \Log::info('=== ACTUALIZACIÓN MANUAL DE STATUS INICIADA ===');
+    
+    try {
+        // Ejecutar el comando artisan
+        \Artisan::call('alumnos:actualizar-status');
+        
+        // Obtener el output del comando
+        $output = \Artisan::output();
+        
+        \Log::info('Comando ejecutado. Output:', ['output' => $output]);
+        
+        return redirect()->route('dashboard', ['table' => 'alumno'])
+            ->with('success', 'Status de alumnos actualizado correctamente según las fechas de sus programas');
+            
+    } catch (\Exception $e) {
+        \Log::error('Error al actualizar status manualmente:', [
+            'error' => $e->getMessage()
+        ]);
+        
+        return redirect()->back()
+            ->with('error', 'Error al actualizar status: ' . $e->getMessage());
     }
 }
 }

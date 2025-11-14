@@ -234,7 +234,10 @@ Route::middleware(['admin'])->prefix('admin')->group(function () {
         Route::get('/descargar-formato/{id}/{tipo}', [FormatoController::class, 'downloadEditedWord'])
             ->where(['id' => '^[0-9]+$', 'tipo' => '^[a-zA-Z_]+$'])
             ->name('formatos.download.tipo');
-        
+        // Actualizar status de alumnos manualmente
+Route::post('/admin/alumnos/actualizar-status', [DatabaseOverviewController::class, 'actualizarStatusManual'])
+    ->middleware('admin')
+    ->name('alumnos.actualizar-status-manual');
         // Exportación
         Route::get('/export/excel', [App\Http\Controllers\ExportController::class, 'exportExcel'])->name('export.excel');
         Route::get('/export/pdf', [App\Http\Controllers\ExportController::class, 'exportPdf'])->name('export.pdf');
