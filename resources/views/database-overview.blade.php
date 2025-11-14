@@ -558,7 +558,7 @@ use Carbon\Carbon;
                             @if($rows->isNotEmpty())
                               @foreach(array_keys((array)$rows->first()) as $column)
     @if(in_array($column, [
-        'id',
+   
         'alumno_id',
         'edad_id',
         'sexo_id',
@@ -585,7 +585,7 @@ use Carbon\Carbon;
                             <tr class="hover:bg-gray-50 transition-colors">
 @foreach((array)$row as $column => $value)
     @if(in_array($column, [
-        'id',
+       
         'alumno_id',
         'edad_id',
         'sexo_id',
